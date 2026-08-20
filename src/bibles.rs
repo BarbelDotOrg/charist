@@ -1,6 +1,6 @@
+use crate::debug_utils::trace;
 use serde::Deserialize;
 use std::collections::HashMap;
-use crate::debug_utils::trace;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct BibleData {
@@ -48,7 +48,5 @@ impl Verse {
 pub fn load_bible_from_bytes(
     bytes: &[u8],
 ) -> Result<BibleData, ciborium::de::Error<std::io::Error>> {
-    trace("Load bible", || {
-        ciborium::de::from_reader(bytes)
-    })
+    trace("Load bible", || ciborium::de::from_reader(bytes))
 }

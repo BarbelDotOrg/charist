@@ -30,14 +30,11 @@ libcosmic = {
         "multi-window",
         "wgpu",
         "wayland",
+        "debug"
     ]
 }
 regex = "1.13.1"
 lazy_static = "1.5.0"
-
-[features]
-default = []
-debug = ["libcosmic/debug"]
 
 [package.metadata.deb]
 name = "charist"

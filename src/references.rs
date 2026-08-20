@@ -1,7 +1,7 @@
+use crate::debug_utils::trace;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
-use crate::debug_utils::trace;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Reference {
