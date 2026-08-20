@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Charist
+Comment=Bible reader application
+Exec=charist %U
+Icon=org.barbel.Charist
+Terminal=false
+Type=Application
+Categories=Utility;Education;
+Keywords=Bible;Scripture;Charist;
+StartupWMClass=org.barbel.Charist

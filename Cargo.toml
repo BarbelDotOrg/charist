@@ -1,0 +1,61 @@
+[package]
+name = "charist"
+version = "0.1.1"
+edition = "2024"
+description = "Bible reader app"
+authors = ["Barbel"]
+license = "AGPL-3"
+
+# rust binaries are morbiously a beast
+# this makes them smaller
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+panic = "abort"
+
+[dependencies]
+serde = {version = "1.0.229", features = ["derive"]}
+ciborium = "0.2.2"
+libcosmic = {
+    git = "https://github.com/pop-os/libcosmic.git",
+    features = [
+        "winit",
+        "tokio",
+        "xdg-portal",
+        "a11y",
+        "single-instance",
+        "surface-message",
+        "multi-window",
+        "wgpu",
+        "wayland",
+    ]
+}
+regex = "1.13.1"
+lazy_static = "1.5.0"
+
+[features]
+default = []
+debug = ["libcosmic/debug"]
+
+[package.metadata.deb]
+name = "charist"
+maintainer = "Barbel <barbel@barbel.org>"
+copyright = "2026, Barbel"
+extended-description = "A native Bible reader"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/charist", "usr/bin/", "755"],
+    ["resources/org.barbel.Charist.desktop", "usr/share/applications/", "644"],
+    ["resources/icons/hicolor/scalable/apps/org.barbel.Charist.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+]
+depends= "$auto"
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/charist", dest = "/usr/bin/charist", mode = "755" },
+    { source = "resources/org.barbel.Charist.desktop", dest = "/usr/share/applications/org.barbel.Charist.desktop", mode = "644" },
+    { source = "resources/icons/hicolor/scalable/apps/org.barbel.Charist.svg", dest = "/usr/share/icons/hicolor/scalable/apps/org.barbel.Charist.svg", mode = "644" },
+]
