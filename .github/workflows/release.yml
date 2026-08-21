@@ -69,23 +69,21 @@ jobs:
 
       - name: Build Arch Linux package (.pkg.tar.zst)
         if: matrix.os == 'ubuntu-latest'
-        run: |
-            # Locate the directory containing the PKGBUILD
+        uses: addnab/docker-run-action@v3
+        with:
+          image: archlinux:latest
+          options: -v ${{ github.workspace }}:/work -w /work
+          run: |
+            pacman -Syu --noconfirm base-devel zstd
             PACMAN_DIR=$(find target/${{ matrix.target }}/release -type f -name "PKGBUILD" -exec dirname {} \;)
             
             if [ -n "$PACMAN_DIR" ]; then
-              echo "Building package in $PACMAN_DIR..."
               cd "$PACMAN_DIR"
-            
-              # makepkg cannot run as root by default. 
-              # We bypass this in CI using PKGEXT to force zst output and --nodeps if dependencies are pre-installed.
-              MAKEPKG_DIR="$PWD"
-            
-              # Run makepkg as the runner user
-              PKGEXT='.pkg.tar.zst' makepkg -f --nodeps
-            
-              # Move the compiled archive back to cargo-packager's release folder
-              cp *.pkg.tar.zst "$GITHUB_WORKSPACE/target/${{ matrix.target }}/release/"
+              # Create non-root user since makepkg refuses to run as root
+              useradd builder -m
+              chown -R builder .
+              su builder -c "PKGEXT='.pkg.tar.zst' makepkg -f --nodeps"
+              cp *.pkg.tar.zst /work/target/${{ matrix.target }}/release/
             fi
 
       # cargo-packager writes outputs to target/<target>/release/
