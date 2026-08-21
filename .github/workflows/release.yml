@@ -44,7 +44,7 @@ jobs:
           key: ${{ matrix.target }}
 
       # ----------------------------------------------------
-      # 1. LINUX BUILD & PACKAGING (.deb, .rpm, .pkg.tar.zst)
+      # 1. LINUX BUILD & PACKAGING
       # ----------------------------------------------------
       - name: Install Linux Build Dependencies
         if: runner.os == 'Linux'
@@ -57,23 +57,27 @@ jobs:
         run: |
           mkdir -p staging
           
-          # Compile release binary
+          # Compilation du binaire
           cargo build --release --target ${{ matrix.target }}
           
-          # Raw Executable
+          # Garantir la présence de target/release/charist pour le PKGBUILD
+          mkdir -p target/release
+          cp "target/${{ matrix.target }}/release/charist" "target/release/charist"
+          
+          # Binaire brut
           cp "target/${{ matrix.target }}/release/charist" "staging/charist-linux-x86_64"
 
-          # Debian (.deb)
+          # Paquet .deb
           cargo install cargo-deb --locked
           cargo deb --target ${{ matrix.target }} --no-build
           cp target/${{ matrix.target }}/debian/*.deb staging/
 
-          # Fedora/RedHat (.rpm)
+          # Paquet .rpm
           cargo install cargo-generate-rpm --locked
           cargo generate-rpm --target ${{ matrix.target }}
           cp target/${{ matrix.target }}/generate-rpm/*.rpm staging/
 
-          # Arch Linux (.pkg.tar.zst via Arch Container)
+          # Paquet Arch Linux via Docker (avec chown pour réattribuer les droits au runner)
           docker run --rm \
             -v "$PWD:/workspace" \
             -w /workspace \
@@ -81,7 +85,8 @@ jobs:
             bash -c "
               useradd -m builder && \
               chown -R builder:builder /workspace && \
-              su builder -c 'makepkg -e -f --nodeps'
+              su builder -c 'makepkg -e -f --nodeps' && \
+              chown -R $(id -u):$(id -g) /workspace/*.pkg.tar.zst
             "
           cp *.pkg.tar.zst staging/
 
@@ -105,7 +110,7 @@ jobs:
           zip -r "../../../../../staging/Charist-macos-${{ matrix.target }}.app.zip" "Charist.app"
 
       # ----------------------------------------------------
-      # 3. WINDOWS BUILD & PACKAGING (NSIS Installer)
+      # 3. WINDOWS BUILD & PACKAGING (NSIS via cargo-bundle format exe)
       # ----------------------------------------------------
       - name: Build & Package (Windows)
         if: runner.os == 'Windows'
@@ -113,23 +118,20 @@ jobs:
         run: |
           mkdir -p staging
           
-          # 1. Install NSIS on the Windows runner via Chocolatey
-          choco install nsis -y
-          
-          # 2. Install cargo-bundle
+          # Installation de cargo-bundle
           cargo install cargo-bundle --locked
 
-          # 3. Build release binary & bundle with NSIS format
-          cargo bundle --release --target ${{ matrix.target }} --format nsis
+          # Génération du binaire et de l'installeur NSIS (.exe)
+          cargo bundle --release --target ${{ matrix.target }} --format exe
 
-          # 4. Copy raw executable
+          # Copie du binaire brut
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
 
-          # 5. Stage NSIS installer (.exe)
-          if [ -d "target/${{ matrix.target }}/release/bundle/nsis" ]; then
-            cp target/${{ matrix.target }}/release/bundle/nsis/*.exe staging/
-          elif [ -d "target/release/bundle/nsis" ]; then
-            cp target/release/bundle/nsis/*.exe staging/
+          # Copie de l'installeur généré
+          if [ -d "target/${{ matrix.target }}/release/bundle/exe" ]; then
+            cp target/${{ matrix.target }}/release/bundle/exe/*.exe staging/Charist-Setup-x86_64.exe
+          elif [ -d "target/release/bundle/exe" ]; then
+            cp target/release/bundle/exe/*.exe staging/Charist-Setup-x86_64.exe
           fi
 
       # ----------------------------------------------------
