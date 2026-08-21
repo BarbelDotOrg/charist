@@ -33,4 +33,4 @@ lazy_static = "=1.5.0"
 [package.metadata.packager]
 product-name = "Charist"
 identifier = "org.barbel.Charist"
-icons = ["resources/icons/128x128.png"]
+icons = ["resources/icons/book.png"]
