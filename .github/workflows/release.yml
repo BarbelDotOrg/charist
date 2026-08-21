@@ -105,24 +105,31 @@ jobs:
           zip -r "../../../../../staging/Charist-macos-${{ matrix.target }}.app.zip" "Charist.app"
 
       # ----------------------------------------------------
-      # 3. WINDOWS BUILD & PACKAGING (.msi/installer via cargo-bundle)
+      # 3. WINDOWS BUILD & PACKAGING (NSIS Installer)
       # ----------------------------------------------------
       - name: Build & Package (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir -p staging
+          
+          # 1. Install NSIS on the Windows runner via Chocolatey
+          choco install nsis -y
+          
+          # 2. Install cargo-bundle
           cargo install cargo-bundle --locked
 
-          # Build release binary & Windows bundle
-          cargo bundle --release --target ${{ matrix.target }}
+          # 3. Build release binary & bundle with NSIS format
+          cargo bundle --release --target ${{ matrix.target }} --format nsis
 
-          # Raw Executable
+          # 4. Copy raw executable
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
 
-          # Stage cargo-bundle installer output
-          if [ -d "target/${{ matrix.target }}/release/bundle/msi" ]; then
-            cp target/${{ matrix.target }}/release/bundle/msi/*.msi staging/
+          # 5. Stage NSIS installer (.exe)
+          if [ -d "target/${{ matrix.target }}/release/bundle/nsis" ]; then
+            cp target/${{ matrix.target }}/release/bundle/nsis/*.exe staging/
+          elif [ -d "target/release/bundle/nsis" ]; then
+            cp target/release/bundle/nsis/*.exe staging/
           fi
 
       # ----------------------------------------------------

@@ -9,7 +9,13 @@ depends=('gcc-libs' 'glibc' 'wayland' 'libxkbcommon')
 options=('!strip')
 
 package() {
-  install -Dm755 "${startdir}/target/release/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+  if [ -f "${startdir}/target/x86_64-unknown-linux-gnu/release/${pkgname}" ]; then
+    BIN_PATH="${startdir}/target/x86_64-unknown-linux-gnu/release/${pkgname}"
+  else
+    BIN_PATH="${startdir}/target/release/${pkgname}"
+  fi
+
+  install -Dm755 "${BIN_PATH}" "${pkgdir}/usr/bin/${pkgname}"
 
   install -Dm644 "${startdir}/resources/org.barbel.Charist.desktop" \
     "${pkgdir}/usr/share/applications/org.barbel.Charist.desktop"
