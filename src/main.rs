@@ -256,10 +256,10 @@ impl Application for CharistApp {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content = column![
-            self.view_reference_bar(),
-            self.view_controls(),
-            self.view_verses(),
-        ]
+        self.view_controls(),
+        self.view_error_banner(),
+        self.view_verses(),
+    ]
             .spacing(16)
             .padding(20)
             .width(Length::Fill)
@@ -371,6 +371,17 @@ impl CharistApp {
         bar.into()
     }
 
+    fn view_error_banner(&self) -> Element<'_, Message> {
+        match &self.reference_error {
+            Some(err) => container(text::caption(err.clone()))
+                .padding(10)
+                .width(Length::Fill)
+                .style(error_banner_style)
+                .into(),
+            None => widget::Space::new().width(0.0).height(Length::Shrink).into(),
+        }
+    }
+
     fn labeled_field<'a>(
         &'a self,
         label: &'static str,
@@ -384,24 +395,32 @@ impl CharistApp {
     }
 
     fn view_controls(&self) -> Element<'_, Message> {
+        let reference_input =
+            text_input("e.g. John 3:16, Gen 1:1-5, Romans 8, Apocalypse", &self.reference_text)
+                .id(widget::Id::new("reference_input"))
+                .on_input(Message::ReferenceInputChanged)
+                .on_submit(|_| Message::ReferenceSubmitted)
+                .width(Length::Fill);
+
         let footnotes_toggle = column![
-            text::caption("Footnotes"),
-            row![
-                widget::checkbox(self.show_footnotes).on_toggle(Message::ToggleFootnotes),
-                text::body("Show notes & cross-refs"),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
+        text::caption("Footnotes"),
+        row![
+            widget::checkbox(self.show_footnotes).on_toggle(Message::ToggleFootnotes),
+            text::body("Show notes & cross-refs"),
         ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    ]
             .spacing(6)
             .width(Length::FillPortion(2));
 
         let bar = row![
-            self.labeled_field("Translation", self.view_bible_dropdown(), 2),
-            self.labeled_field("Book", self.view_book_dropdown(), 3),
-            self.labeled_field("Chapter", self.view_chapter_dropdown(), 1),
-            footnotes_toggle,
-        ]
+        self.labeled_field("Reference", reference_input.into(), 4),
+        self.labeled_field("Translation", self.view_bible_dropdown(), 2),
+        self.labeled_field("Book", self.view_book_dropdown(), 3),
+        self.labeled_field("Chapter", self.view_chapter_dropdown(), 1),
+        footnotes_toggle,
+    ]
             .spacing(24)
             .align_y(Alignment::End)
             .width(Length::Fill);

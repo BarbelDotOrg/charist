@@ -1,6 +1,6 @@
 [package]
 name = "charist"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 description = "Bible reader app"
 authors = ["Barbel"]
@@ -16,10 +16,11 @@ opt-level = "z"
 panic = "abort"
 
 [dependencies]
-serde = {version = "1.0.229", features = ["derive"]}
-ciborium = "0.2.2"
+serde = {version = "=1.0.229", features = ["derive"]}
+ciborium = "=0.2.2"
 libcosmic = {
     git = "https://github.com/pop-os/libcosmic.git",
+    rev = "a5267e623f356d1792cba7f480dd671cc8b52406",
     features = [
         "winit",
         "tokio",
@@ -33,8 +34,8 @@ libcosmic = {
         "debug"
     ]
 }
-regex = "1.13.1"
-lazy_static = "1.5.0"
+regex = "=1.13.1"
+lazy_static = "=1.5.0"
 
 [package.metadata.deb]
 name = "charist"
