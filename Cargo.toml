@@ -18,17 +18,24 @@ panic = "abort"
 [dependencies]
 serde = {version = "=1.0.229", features = ["derive"]}
 ciborium = "=0.2.2"
+regex = "=1.13.1"
+lazy_static = "=1.5.0"
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 libcosmic = {
     git = "https://github.com/pop-os/libcosmic.git",
     rev = "a5267e623f356d1792cba7f480dd671cc8b52406",
-    features = [
-        "winit",
-        "tokio",
-        "wgpu"
-    ]
+    features = ["winit", "tokio"]
 }
-regex = "=1.13.1"
-lazy_static = "=1.5.0"
+
+# TODO a better fix than software rendering on windows
+[target.'cfg(target_os = "windows")'.dependencies]
+libcosmic = {
+    git = "https://github.com/pop-os/libcosmic.git",
+    rev = "a5267e623f356d1792cba7f480dd671cc8b52406",
+    features = ["winit", "tokio"] ,
+    default-features = false
+}
 
 [package.metadata.packager]
 product-name = "Charist"

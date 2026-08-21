@@ -714,7 +714,15 @@ impl CharistApp {
 
     fn update_title(&mut self) -> cosmic::app::Task<Message> {
         if let Some(id) = self.core.main_window_id() {
-            self.set_window_title("Charist".into(), id)
+            #[cfg(target_os = "windows")]
+            {
+                self.set_window_title("Charist".into())
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                self.set_window_title("Charist".into(), id)
+            }
         } else {
             Task::none()
         }
