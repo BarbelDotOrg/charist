@@ -473,12 +473,6 @@ impl CharistApp {
             return text::body("Unknown chapter").into();
         };
 
-        let header = column![
-            text::title3(format!("{} {}", book.name, chapter)),
-            text::caption(bible.meta.module.clone()),
-        ]
-            .spacing(2);
-
         let mut verse_list = column![].spacing(4);
         for (i, verse) in verses.iter().enumerate() {
             let verse_num = i + 1;
@@ -502,13 +496,9 @@ impl CharistApp {
                 verse_list.push(mouse_area(clickable).on_press(Message::VerseClicked(verse_num)));
         }
 
-        let body = column![
-            header,
-            divider::horizontal::default(),
-            scrollable(verse_list.padding([4, 4])).height(Length::Fill),
-        ]
+        let body =
+            scrollable(verse_list.padding([4, 4])).height(Length::Fill)
             .spacing(16)
-            .padding(20)
             .width(Length::Fill)
             .height(Length::Fill);
 
