@@ -61,7 +61,10 @@ jobs:
         with:
           tool: cargo-packager
 
-      - name: Build and package
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
         run: cargo packager --release --target ${{ matrix.target }} --verbose
 
       # cargo-packager writes outputs to target/<target>/release/

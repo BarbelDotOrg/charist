@@ -24,14 +24,13 @@ libcosmic = {
     features = [
         "winit",
         "tokio",
-        "iced_wgpu"
+        "wgpu"
     ]
 }
 regex = "=1.13.1"
 lazy_static = "=1.5.0"
 
 [package.metadata.packager]
-before-packaging-command = "cargo build --release"
 product-name = "Charist"
 identifier = "org.barbel.Charist"
 icons = ["resources/icons/128x128.png"]
