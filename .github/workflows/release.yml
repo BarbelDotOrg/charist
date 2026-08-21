@@ -44,7 +44,7 @@ jobs:
           key: ${{ matrix.target }}
 
       # ----------------------------------------------------
-      # 1. LINUX BUILD & PACKAGING
+      # 1. LINUX BUILD & PACKAGING (.deb, .rpm, .pkg.tar.zst)
       # ----------------------------------------------------
       - name: Install Linux Build Dependencies
         if: runner.os == 'Linux'
@@ -57,23 +57,23 @@ jobs:
         run: |
           mkdir -p staging
           
-          # Compile native binary
+          # Compile release binary
           cargo build --release --target ${{ matrix.target }}
           
-          # 1. Copy raw executable
+          # Raw Executable
           cp "target/${{ matrix.target }}/release/charist" "staging/charist-linux-x86_64"
 
-          # 2. Build .deb package
+          # Debian (.deb)
           cargo install cargo-deb --locked
           cargo deb --target ${{ matrix.target }} --no-build
           cp target/${{ matrix.target }}/debian/*.deb staging/
 
-          # 3. Build .rpm package
+          # Fedora/RedHat (.rpm)
           cargo install cargo-generate-rpm --locked
           cargo generate-rpm --target ${{ matrix.target }}
           cp target/${{ matrix.target }}/generate-rpm/*.rpm staging/
 
-          # 4. Build .pkg.tar.zst via Arch Linux Docker container
+          # Arch Linux (.pkg.tar.zst via Arch Container)
           docker run --rm \
             -v "$PWD:/workspace" \
             -w /workspace \
@@ -86,45 +86,44 @@ jobs:
           cp *.pkg.tar.zst staging/
 
       # ----------------------------------------------------
-      # 2. MACOS BUILD & PACKAGING
+      # 2. MACOS BUILD & PACKAGING (.app via cargo-bundle)
       # ----------------------------------------------------
       - name: Build & Package (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p staging
-          
-          # Compile native binary & create .app bundle via cargo-bundle
           cargo install cargo-bundle --locked
+          
+          # Bundle into Charist.app
           cargo bundle --release --target ${{ matrix.target }} --format osx
 
-          # 1. Copy raw executable
+          # Raw Executable
           cp "target/${{ matrix.target }}/release/charist" "staging/charist-macos-${{ matrix.target }}"
 
-          # 2. Zip .app bundle for clean distribution
+          # Zip .app Bundle
           cd "target/${{ matrix.target }}/release/bundle/osx"
           zip -r "../../../../../staging/Charist-macos-${{ matrix.target }}.app.zip" "Charist.app"
 
       # ----------------------------------------------------
-      # 3. WINDOWS BUILD & PACKAGING
+      # 3. WINDOWS BUILD & PACKAGING (.msi/installer via cargo-bundle)
       # ----------------------------------------------------
       - name: Build & Package (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir -p staging
-          
-          # Compile native binary
-          cargo build --release --target ${{ matrix.target }}
+          cargo install cargo-bundle --locked
 
-          # 1. Copy raw executable
+          # Build release binary & Windows bundle
+          cargo bundle --release --target ${{ matrix.target }}
+
+          # Raw Executable
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
 
-          # 2. Build NSIS Setup Installer (.exe)
-          cargo install cargo-packager --locked
-          cargo packager --formats nsis --target ${{ matrix.target }} --no-build
-          
-          # Locate and stage installer executable
-          cp target/packager/*.exe staging/Charist-Setup-x86_64.exe || cp target/${{ matrix.target }}/packager/*.exe staging/Charist-Setup-x86_64.exe
+          # Stage cargo-bundle installer output
+          if [ -d "target/${{ matrix.target }}/release/bundle/msi" ]; then
+            cp target/${{ matrix.target }}/release/bundle/msi/*.msi staging/
+          fi
 
       # ----------------------------------------------------
       # 4. UPLOAD ARTIFACTS
