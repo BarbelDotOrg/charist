@@ -1,0 +1,121 @@
+name: Release
+
+# Triggers:
+# 1. Push a tag like "v1.0.0" -> builds + creates/updates a GitHub Release with assets attached
+# 2. Manual run from the Actions tab -> builds + uploads artifacts, no release created
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Linux packaging needs these system libs for building + for
+      # AppImage/deb bundling (adjust if your app needs more)
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libxkbcommon-dev \
+            libssl-dev \
+            file \
+            desktop-file-utils
+
+      - name: Install cargo-packager
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-packager
+
+      - name: Build and package
+        run: cargo packager --release --target ${{ matrix.target }} --verbose
+
+      # cargo-packager writes outputs to target/<target>/release/
+      # Collect just the installer/bundle artifacts (skip raw binaries/deps)
+      - name: Collect artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p dist
+          find target/${{ matrix.target }}/release \
+            -maxdepth 1 \
+            -type f \
+            \( -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.pkg.tar.zst" \) \
+            -exec cp {} dist/ \;
+          ls -la dist
+
+      - name: Collect artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Get-ChildItem "target/${{ matrix.target }}/release" -File |
+            Where-Object { $_.Extension -in ".msi", ".exe" } |
+            Copy-Item -Destination dist
+          Get-ChildItem dist
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact folders
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec cp {} release-assets/ \;
+          ls -la release-assets
+
+      - name: Create/update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          draft: false
+          generate_release_notes: true
