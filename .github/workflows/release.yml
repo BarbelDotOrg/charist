@@ -79,11 +79,9 @@ jobs:
             
             if [ -n "$PACMAN_DIR" ]; then
               cd "$PACMAN_DIR"
-              # Create non-root user since makepkg refuses to run as root
               useradd builder -m
               chown -R builder .
               su builder -c "PKGEXT='.pkg.tar.zst' makepkg -f --nodeps"
-              cp *.pkg.tar.zst /work/target/${{ matrix.target }}/release/
             fi
 
       # cargo-packager writes outputs to target/<target>/release/
