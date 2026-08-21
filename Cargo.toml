@@ -1,8 +1,8 @@
 [package]
 name = "charist"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
-description = "Bible reader app"
+description = "Intuitive bible reader"
 authors = ["Barbel"]
 license = "AGPL-3"
 
@@ -37,7 +37,28 @@ libcosmic = {
     default-features = false
 }
 
-[package.metadata.packager]
-product-name = "Charist"
+[package.metadata.deb]
+maintainer = "Barbel"
+copyright = "2026, Barbel"
+extended-description = "An intuitive Bible reader desktop app built by Barbel."
+depends = "$auto, libwayland-client0, libxkbcommon0"
+section = "utility"
+assets = [
+    ["target/release/charist", "usr/bin/charist", "755"],
+    ["resources/org.barbel.Charist.desktop", "usr/share/applications/", "644"],
+    ["resources/icons/hicolor/scalable/apps/org.barbel.Charist.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/charist", dest = "/usr/bin/charist", mode = "755" },
+    { source = "resources/org.barbel.Charist.desktop", dest = "/usr/share/applications/org.barbel.Charist.desktop", mode = "644" },
+    { source = "resources/icons/hicolor/scalable/apps/org.barbel.Charist.svg", dest = "/usr/share/icons/hicolor/scalable/apps/org.barbel.Charist.svg", mode = "644" }
+]
+requires = { "wayland-libs" = "*", "libxkbcommon" = "*" }
+
+[package.metadata.bundle]
+icon = ["resources/icons/book.png"]
 identifier = "org.barbel.Charist"
-icons = ["resources/icons/book.png"]
+keywords = ["Bible", "Scripture", "Reader"]
+category = "public.app-category.education"

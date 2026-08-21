@@ -43,76 +43,97 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      # Linux packaging needs these system libs for building + for
-      # AppImage/deb bundling (adjust if your app needs more)
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+      # ----------------------------------------------------
+      # 1. LINUX BUILD & PACKAGING
+      # ----------------------------------------------------
+      - name: Install Linux Build Dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libxkbcommon-dev \
-            libssl-dev \
-            file \
-            desktop-file-utils
+          sudo apt-get install -y libwayland-dev libxkbcommon-dev
 
-      - name: Install cargo-packager
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-packager
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Package
-        run: cargo packager --release --target ${{ matrix.target }} --verbose
-
-      - name: Build Arch Linux package (.pkg.tar.zst)
-        if: matrix.os == 'ubuntu-latest'
-        uses: addnab/docker-run-action@v3
-        with:
-          image: archlinux:latest
-          options: -v ${{ github.workspace }}:/work -w /work
-          run: |
-            pacman -Syu --noconfirm base-devel zstd
-            PACMAN_DIR=$(find target/${{ matrix.target }}/release -type f -name "PKGBUILD" -exec dirname {} \;)
-            
-            if [ -n "$PACMAN_DIR" ]; then
-              cd "$PACMAN_DIR"
-              useradd builder -m
-              chown -R builder .
-              su builder -c "PKGEXT='.pkg.tar.zst' makepkg -f --nodeps"
-            fi
-
-      # cargo-packager writes outputs to target/<target>/release/
-      # Collect just the installer/bundle artifacts (skip raw binaries/deps)
-      - name: Collect artifacts (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Build & Package (Linux)
+        if: runner.os == 'Linux'
         run: |
-          mkdir -p dist
-          find target/${{ matrix.target }}/release \
-            -maxdepth 1 \
-            -type f \
-            \( -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.pkg.tar.zst" -o -name "*.app" \) \
-            -exec cp {} dist/ \;
-          ls -la dist
+          mkdir -p staging
+          
+          # Compile native binary
+          cargo build --release --target ${{ matrix.target }}
+          
+          # 1. Copy raw executable
+          cp "target/${{ matrix.target }}/release/charist" "staging/charist-linux-x86_64"
 
-      - name: Collect artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+          # 2. Build .deb package
+          cargo install cargo-deb --locked
+          cargo deb --target ${{ matrix.target }} --no-build
+          cp target/${{ matrix.target }}/debian/*.deb staging/
+
+          # 3. Build .rpm package
+          cargo install cargo-generate-rpm --locked
+          cargo generate-rpm --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/generate-rpm/*.rpm staging/
+
+          # 4. Build .pkg.tar.zst via Arch Linux Docker container
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            archlinux:base-devel \
+            bash -c "
+              useradd -m builder && \
+              chown -R builder:builder /workspace && \
+              su builder -c 'makepkg -e -f --nodeps'
+            "
+          cp *.pkg.tar.zst staging/
+
+      # ----------------------------------------------------
+      # 2. MACOS BUILD & PACKAGING
+      # ----------------------------------------------------
+      - name: Build & Package (macOS)
+        if: runner.os == 'macOS'
         run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Get-ChildItem "target/${{ matrix.target }}/release" -File |
-            Where-Object { $_.Extension -in ".msi", ".exe" } |
-            Copy-Item -Destination dist
-          Get-ChildItem dist
+          mkdir -p staging
+          
+          # Compile native binary & create .app bundle via cargo-bundle
+          cargo install cargo-bundle --locked
+          cargo bundle --release --target ${{ matrix.target }} --format osx
 
-      - name: Upload build artifacts
+          # 1. Copy raw executable
+          cp "target/${{ matrix.target }}/release/charist" "staging/charist-macos-${{ matrix.target }}"
+
+          # 2. Zip .app bundle for clean distribution
+          cd "target/${{ matrix.target }}/release/bundle/osx"
+          zip -r "../../../../../staging/Charist-macos-${{ matrix.target }}.app.zip" "Charist.app"
+
+      # ----------------------------------------------------
+      # 3. WINDOWS BUILD & PACKAGING
+      # ----------------------------------------------------
+      - name: Build & Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p staging
+          
+          # Compile native binary
+          cargo build --release --target ${{ matrix.target }}
+
+          # 1. Copy raw executable
+          cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
+
+          # 2. Build NSIS Setup Installer (.exe)
+          cargo install cargo-packager --locked
+          cargo packager --formats nsis --target ${{ matrix.target }} --no-build
+          
+          # Locate and stage installer executable
+          cp target/packager/*.exe staging/Charist-Setup-x86_64.exe || cp target/${{ matrix.target }}/packager/*.exe staging/Charist-Setup-x86_64.exe
+
+      # ----------------------------------------------------
+      # 4. UPLOAD ARTIFACTS
+      # ----------------------------------------------------
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
-          path: dist/*
-          if-no-files-found: error
+          name: artifacts-${{ matrix.os }}-${{ matrix.target }}
+          path: staging/*
 
   release:
     name: Create release
