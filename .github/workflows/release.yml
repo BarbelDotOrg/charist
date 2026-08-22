@@ -98,14 +98,21 @@ jobs:
         run: |
           mkdir -p staging
           cargo install cargo-bundle --locked
-          
           cargo bundle --release --target ${{ matrix.target }} --format osx
           
           cp "target/${{ matrix.target }}/release/charist" "staging/charist-macos-${{ matrix.target }}"
           
+          brew install create-dmg
+          
           APP_PATH="target/${{ matrix.target }}/release/bundle/osx/Charist.app"
-          hdiutil create -volname "Charist" -srcfolder "$APP_PATH" -ov -format UDZO \
-            "staging/Charist-macos-${{ matrix.target }}.dmg"
+          create-dmg \
+            --volname "Charist" \
+            --app-drop-link 425 120 \
+            --window-size 500 320 \
+            --icon "Charist.app" 125 120 \
+            "staging/Charist-macos-${{ matrix.target }}.dmg" \
+            "$APP_PATH" \
+          || true   # create-dmg exits non-zero on some benign AppleScript/Finder timing issues in headless CI
 
       # ----------------------------------------------------
       # 3. WINDOWS BUILD & PACKAGING (NSIS via cargo-bundle format exe)
@@ -115,10 +122,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          cargo install cargo-wix --locked
+          cargo build --release --target ${{ matrix.target }}
           
+          cargo install cargo-wix --locked
           cargo wix init
-          cargo wix --nocapture
+          cargo wix --nocapture --target-bin-dir "target/${{ matrix.target }}/release"
           
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
           
