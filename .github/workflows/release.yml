@@ -79,15 +79,15 @@ jobs:
 
           # Paquet Arch Linux via Docker (avec chown pour réattribuer les droits au runner)
           docker run --rm \
-            -v "$PWD:/workspace" \
-            -w /workspace \
-            archlinux:base-devel \
-            bash -c "
-              useradd -m builder && \
-              chown -R builder:builder /workspace && \
-              su builder -c 'makepkg -e -f --nodeps' && \
-              chown -R $(id -u):$(id -g) /workspace/*.pkg.tar.zst
-            "
+          -v "$PWD:/workspace" \
+          -w /workspace \
+          archlinux:base-devel \
+          bash -c "
+          useradd -m builder && \
+          chown -R builder:builder /workspace && \
+          su builder -c 'makepkg -e -f --nodeps'
+          "
+          sudo chown -R "$(id -u):$(id -g)" .
           cp *.pkg.tar.zst staging/
 
       # ----------------------------------------------------
@@ -117,22 +117,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          
-          # Installation de cargo-bundle
           cargo install cargo-bundle --locked
-
-          # Génération du binaire et de l'installeur NSIS (.exe)
-          cargo bundle --release --target ${{ matrix.target }} --format exe
-
-          # Copie du binaire brut
+          cargo bundle --release --target ${{ matrix.target }} --format msi
+          
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
-
-          # Copie de l'installeur généré
-          if [ -d "target/${{ matrix.target }}/release/bundle/exe" ]; then
-            cp target/${{ matrix.target }}/release/bundle/exe/*.exe staging/Charist-Setup-x86_64.exe
-          elif [ -d "target/release/bundle/exe" ]; then
-            cp target/release/bundle/exe/*.exe staging/Charist-Setup-x86_64.exe
-          fi
+          
+          MSI_PATH=$(find "target/${{ matrix.target }}/release/bundle/msi" -name "*.msi" | head -n1)
+          cp "$MSI_PATH" "staging/Charist-Setup-x86_64.msi"
 
       # ----------------------------------------------------
       # 4. UPLOAD ARTIFACTS
