@@ -115,12 +115,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          cargo install cargo-bundle --locked
-          cargo bundle --release --target ${{ matrix.target }} --format msi
+          cargo install cargo-wix --locked
+          
+          cargo wix init
+          cargo wix --nocapture
           
           cp "target/${{ matrix.target }}/release/charist.exe" "staging/charist-windows-x86_64.exe"
           
-          MSI_PATH=$(find "target/${{ matrix.target }}/release/bundle/msi" -name "*.msi" | head -n1)
+          MSI_PATH=$(find target/wix -name "*.msi" | head -n1)
           cp "$MSI_PATH" "staging/Charist-Setup-x86_64.msi"
 
       # ----------------------------------------------------
