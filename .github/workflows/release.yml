@@ -99,15 +99,13 @@ jobs:
           mkdir -p staging
           cargo install cargo-bundle --locked
           
-          # Bundle into Charist.app
           cargo bundle --release --target ${{ matrix.target }} --format osx
-
-          # Raw Executable
+          
           cp "target/${{ matrix.target }}/release/charist" "staging/charist-macos-${{ matrix.target }}"
-
-          # Zip .app Bundle
-          cd "target/${{ matrix.target }}/release/bundle/osx"
-          zip -r "../../../../../staging/Charist-macos-${{ matrix.target }}.app.zip" "Charist.app"
+          
+          APP_PATH="target/${{ matrix.target }}/release/bundle/osx/Charist.app"
+          hdiutil create -volname "Charist" -srcfolder "$APP_PATH" -ov -format UDZO \
+            "staging/Charist-macos-${{ matrix.target }}.dmg"
 
       # ----------------------------------------------------
       # 3. WINDOWS BUILD & PACKAGING (NSIS via cargo-bundle format exe)
