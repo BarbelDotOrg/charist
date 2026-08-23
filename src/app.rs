@@ -1,5 +1,6 @@
 use crate::bibles::{BibleData, load_bible_from_bytes};
-use crate::config::{AppConfig, Bookmark};
+use crate::config::{AppConfig, Bookmark, CopyIncludeReferencePolicy};
+use crate::fl;
 use crate::footnotes::FootnoteLink;
 use crate::references::{Reference, parse_reference};
 use crate::view;
@@ -18,6 +19,12 @@ use std::process::exit;
 pub(crate) struct BibleOption {
     pub(crate) name: &'static str,
     pub(crate) bytes: &'static [u8],
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum Modal {
+    Footnote(FootnoteLink),
+    Bookmarks,
 }
 
 pub(crate) const BIBLE_OPTIONS: &[BibleOption] = &[
@@ -52,10 +59,8 @@ pub struct CharistApp {
     pub(crate) reference_text: String,
     pub(crate) reference_error: Option<String>,
 
-    pub(crate) show_footnotes: bool,
-    pub(crate) open_footnote: Option<FootnoteLink>,
-
-    pub(crate) verse_popup: Option<(usize, VersePopup)>, // (verse_num, popup state)
+    pub(crate) modal: Option<Modal>, // replaces open_footnote
+    pub(crate) verse_popup: Option<(usize, VersePopup)>,
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +77,10 @@ pub enum Message {
     ReferenceSubmitted,
     FocusInput, // Window opened
     FootnoteClicked(FootnoteLink),
-    CloseFootnote,
+    CloseModal, // was CloseFootnote
+    ToggleBookmarks,
+    JumpToBookmark(usize),
+    RemoveBookmark(usize),
     ToggleFootnotes(bool),
     CrossRefClicked(String),
     UpdateConfig(AppConfig),
@@ -120,8 +128,7 @@ impl Application for CharistApp {
             selection_anchor: None,
             reference_text: String::new(),
             reference_error: None,
-            show_footnotes: true,
-            open_footnote: None,
+            modal: None,
             verse_popup: None,
         };
 
@@ -160,8 +167,21 @@ impl Application for CharistApp {
         Subscription::batch(vec![
             cosmic::iced::event::listen_with(|event, _status, _id| match event {
                 cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::ModifiersChanged(
-                    m,
-                )) => Some(Message::ModifiersChanged(m)),
+                                                  m,
+                                              )) => Some(Message::ModifiersChanged(m)),
+                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed {
+                                                  key,
+                                                  modifiers,
+                                                  ..
+                                              }) => {
+                    if modifiers.command()
+                        && key == cosmic::iced::keyboard::Key::Character("c".into())
+                    {
+                        Some(Message::CopySelection)
+                    } else {
+                        None
+                    }
+                }
                 cosmic::iced::Event::Window(cosmic::iced::window::Event::Focused) => {
                     Some(Message::FocusInput)
                 }
@@ -187,7 +207,7 @@ impl Application for CharistApp {
                             self.book_key = None;
                             self.chapter = None;
                             self.clear_selection();
-                            self.open_footnote = None;
+                            self.modal = None;
                         }
                         Err(err) => eprintln!("failed to load bible '{}': {err}", opt.name),
                     }
@@ -199,14 +219,14 @@ impl Application for CharistApp {
                         self.book_key = Some(key.clone());
                         self.chapter = None;
                         self.clear_selection();
-                        self.open_footnote = None;
+                        self.modal = None;
                     }
                 }
             }
             Message::SelectChapterIndex(idx) => {
                 self.chapter = Some(idx + 1);
                 self.clear_selection();
-                self.open_footnote = None;
+                self.modal = None;
             }
             Message::ModifiersChanged(m) => {
                 self.modifiers = m;
@@ -242,8 +262,10 @@ impl Application for CharistApp {
                         }
                     }
                     None => {
-                        self.reference_error =
-                            Some(format!("Couldn't understand \"{}\"", self.reference_text));
+                        self.reference_error = Some(fl!(
+                            "couldnt-understand",
+                            reference = self.reference_text.clone()
+                        ));
                     }
                 }
             }
@@ -251,19 +273,19 @@ impl Application for CharistApp {
                 return text_input::focus(widget::Id::new("reference_input"));
             }
             Message::FootnoteClicked(link) => {
-                self.open_footnote = Some(link);
+                self.modal = Some(Modal::Footnote(link));
             }
-            Message::CloseFootnote => {
-                self.open_footnote = None;
+            Message::CloseModal => {
+                self.modal = None;
             }
             Message::ToggleFootnotes(enabled) => {
-                self.show_footnotes = enabled;
+                self.config.show_footnotes = enabled;
                 if !enabled {
-                    self.open_footnote = None;
+                    self.modal = None;
                 }
             }
             Message::CrossRefClicked(reference_text) => {
-                self.open_footnote = None;
+                self.modal = None;
                 match parse_reference(&reference_text) {
                     Some(reference) => {
                         if let Err(err) = self.apply_reference(reference) {
@@ -272,7 +294,7 @@ impl Application for CharistApp {
                     }
                     None => {
                         self.reference_error =
-                            Some(format!("Couldn't understand \"{reference_text}\""));
+                            Some(fl!("couldnt-understand", reference = reference_text));
                     }
                 }
             }
@@ -324,8 +346,41 @@ impl Application for CharistApp {
 
             Message::CopySelection => {
                 self.verse_popup = None;
-                // build the verse text from self.selected_verses / self.bible, then:
-                // return cosmic::iced::clipboard::write(text);
+                if let Some(text) = self.selection_text() {
+                    return cosmic::iced::clipboard::write(text);
+                }
+            }
+
+            Message::JumpToBookmark(idx) => {
+                if let Some(bookmark) = self.config.bookmarks.get(idx).cloned() {
+                    if let Some(bible) = &self.bible {
+                        if bible.books.contains_key(&bookmark.book_key) {
+                            self.book_key = Some(bookmark.book_key);
+                            self.chapter = Some(bookmark.chapter);
+                            match (bookmark.verse_start, bookmark.verse_end) {
+                                (Some(s), Some(e)) => {
+                                    self.selected_verses = (s..=e).collect();
+                                    self.selection_anchor = Some(s);
+                                }
+                                _ => self.clear_selection(),
+                            }
+                        }
+                    }
+                }
+                self.modal = None;
+            }
+
+            Message::RemoveBookmark(idx) => {
+                if idx < self.config.bookmarks.len() {
+                    self.config.bookmarks.remove(idx);
+                }
+            }
+
+            Message::ToggleBookmarks => {
+                self.modal = match self.modal {
+                    Some(Modal::Bookmarks) => None,
+                    _ => Some(Modal::Bookmarks),
+                };
             }
         }
         Task::none()
@@ -351,7 +406,7 @@ impl CharistApp {
     /// error instead of failing silently if anything doesn't line up.
     pub(crate) fn apply_reference(&mut self, reference: Reference) -> Result<(), String> {
         let Some(bible) = &self.bible else {
-            return Err("Pick a translation first".to_string());
+            return Err(fl!("pick-translation-first"));
         };
 
         let query = reference.osis_book.trim().to_lowercase();
@@ -372,9 +427,10 @@ impl CharistApp {
             .cloned();
 
         let Some(book_key) = book_key else {
-            return Err(format!(
-                "No book matching \"{}\" in {}",
-                reference.osis_book, bible.meta.module
+            return Err(fl!(
+                "no-book-matching",
+                query = reference.osis_book.clone(),
+                module = bible.meta.module.clone()
             ));
         };
 
@@ -382,7 +438,11 @@ impl CharistApp {
 
         let chapter = reference.chapter.unwrap_or(1);
         if chapter == 0 || chapter > book.chapters.len() {
-            return Err(format!("{} has no chapter {}", book.name, chapter));
+            return Err(fl!(
+                "no-chapter-in-book",
+                book = book.name.clone(),
+                chapter = chapter
+            ));
         }
 
         let verse_count = book.chapters[chapter - 1].len();
@@ -393,15 +453,17 @@ impl CharistApp {
         };
 
         if start > 0 && (start > verse_count || end > verse_count) {
-            return Err(format!(
-                "{} {} only has {} verses",
-                book.name, chapter, verse_count
+            return Err(fl!(
+                "not-enough-verses",
+                book = book.name.clone(),
+                chapter = chapter,
+                count = verse_count
             ));
         }
 
         self.book_key = Some(book_key);
         self.chapter = Some(chapter);
-        self.open_footnote = None;
+        self.modal = None;
 
         if start > 0 {
             self.selected_verses = (start..=end).collect();
@@ -460,5 +522,48 @@ impl CharistApp {
             });
             // self.save_config();
         }
+    }
+
+    fn selection_text(&self) -> Option<String> {
+        let book_key = self.book_key.as_ref()?;
+        let chapter = self.chapter?;
+        let bible = self.bible.as_ref()?;
+        let book = bible.books.get(book_key)?;
+        let verses = book.chapters.get(chapter - 1)?;
+        let start = *self.selected_verses.iter().next()?;
+        let end = *self.selected_verses.iter().last()?;
+
+        let reference = if start == end {
+            format!("{} {}:{}", book.name, chapter, start)
+        } else {
+            format!("{} {}:{}-{}", book.name, chapter, start, end)
+        };
+
+        let delimiter = if self.config.copy_delimitate_with_newline {
+            "\n"
+        } else {
+            " "
+        };
+
+        let body = self
+            .selected_verses
+            .iter()
+            .filter_map(|&num| {
+                verses.get(num - 1).map(|v| {
+                    if self.config.copy_includes_verse_numbers {
+                        format!("{num} {}", v.text())
+                    } else {
+                        v.text().to_string()
+                    }
+                })
+            })
+            .collect::<Vec<_>>()
+            .join(delimiter);
+
+        Some(match self.config.copy_includes_reference_policy {
+            CopyIncludeReferencePolicy::DoNot => body,
+            CopyIncludeReferencePolicy::Top => format!("{reference}\n{body}"),
+            CopyIncludeReferencePolicy::Bottom => format!("{body}\n{reference}"),
+        })
     }
 }
