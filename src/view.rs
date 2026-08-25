@@ -158,7 +158,7 @@ impl CharistApp {
             self.labeled_field(fl!("label-translation"), self.view_bible_dropdown(), 2),
             self.labeled_field(fl!("label-book"), self.view_book_dropdown(), 3),
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
-            column![bookmarks_button, settings_button, search_button]
+            column![row![bookmarks_button, settings_button], row![search_button]]
         ]
         .spacing(24)
         .align_y(Alignment::End)
