@@ -11,6 +11,7 @@ mod i18n;
 mod references;
 mod state;
 mod style;
+pub mod update;
 mod view;
 
 fn main() -> cosmic::iced::Result {

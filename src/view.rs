@@ -1,10 +1,16 @@
-use crate::app::{BIBLE_OPTIONS, CharistApp, Message, Modal, VersePopup};
+use crate::app::{BIBLE_OPTIONS, CharistApp, Modal, VersePopup};
 use crate::bibles::Verse;
+use crate::config::CopyIncludeReferencePolicy;
+use crate::fl;
 use crate::footnotes::{
     FootnoteLink, FootnoteMarker, collect_footnote_markers, snap_to_word_end, to_superscript,
     to_superscript_letter,
 };
 use crate::style::{backdrop_style, cross_ref_item_style, error_banner_style, verse_style};
+use crate::update::{
+    BibleMessage as BM, BookmarkMessage as BkM, Message, ReferenceMessage as RM,
+    SettingsMessage as SM, VerseMessage as VM,
+};
 use cosmic::Element;
 use cosmic::iced::widget::text::Span as RichSpan;
 use cosmic::iced::widget::{mouse_area, rich_text, span, stack};
@@ -12,7 +18,6 @@ use cosmic::iced::{Alignment, Color, Length};
 use cosmic::widget::{
     self, button, column, container, divider, dropdown, popover, row, scrollable, text, text_input,
 };
-use crate::fl;
 
 pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
     let content = column![
@@ -20,10 +25,10 @@ pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
         app.view_error_banner(),
         app.view_verses(),
     ]
-        .spacing(16)
-        .padding(20)
-        .width(Length::Fill)
-        .height(Length::Fill);
+    .spacing(16)
+    .padding(20)
+    .width(Length::Fill)
+    .height(Length::Fill);
 
     let base: Element<'_, Message> = widget::container(content)
         .width(Length::Fill)
@@ -39,13 +44,10 @@ pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
 
 impl CharistApp {
     fn view_reference_bar(&self) -> Element<'_, Message> {
-        let input = text_input(
-            fl!("reference-placeholder"),
-            &self.reference_text,
-        )
+        let input = text_input(fl!("reference-placeholder"), &self.reference_text)
             .id(widget::Id::new("reference_input"))
-            .on_input(Message::ReferenceInputChanged)
-            .on_submit(|_| Message::ReferenceSubmitted)
+            .on_input(|s| Message::Reference(RM::InputChanged(s)))
+            .on_submit(|_| Message::Reference(RM::Submitted))
             .width(Length::Fill);
 
         let mut bar = column![input].spacing(6).width(Length::Fill);
@@ -94,20 +96,24 @@ impl CharistApp {
         width: f32,
     ) -> Element<'a, Message> {
         let card_content = column![
-            row![
-                text::title4(title),
-                widget::button::text(fl!("close-button")).on_press(Message::CloseModal),
-            ]
-            .align_y(Alignment::Center)
-            .width(Length::Fill),
-            divider::horizontal::default(),
-            body,
+        row![
+            text::title4(title),
+            widget::button::text(fl!("close-button")).on_press(Message::CloseModal),
         ]
+        .align_y(Alignment::Center)
+        .width(Length::Fill),
+        divider::horizontal::default(),
+        body,
+    ]
             .spacing(10)
             .padding(16)
             .width(Length::Fixed(width));
 
         let card = container(card_content).class(cosmic::theme::Container::Card);
+
+        // Swallow clicks on the card itself so they don't bubble to the
+        // backdrop's on_press below and close the modal.
+        let card = mouse_area(card).on_press(Message::NoOp);
 
         let centered = container(card)
             .width(Length::Fill)
@@ -130,37 +136,29 @@ impl CharistApp {
             "e.g. John 3:16, Gen 1:1-5, Romans 8, Apocalypse",
             &self.reference_text,
         )
-            .id(widget::Id::new("reference_input"))
-            .on_input(Message::ReferenceInputChanged)
-            .on_submit(|_| Message::ReferenceSubmitted)
-            .width(Length::Fill);
+        .id(widget::Id::new("reference_input"))
+        .on_input(|s| Message::Reference(RM::InputChanged(s)))
+        .on_submit(|_| Message::Reference(RM::Submitted))
+        .width(Length::Fill);
 
         let bookmarks_button =
             widget::button::icon(widget::icon::from_name("user-bookmarks-symbolic"))
-                .on_press(Message::ToggleBookmarks);
+                .on_press(Message::Bookmark(BkM::Toggle));
 
-        let footnotes_toggle = column![
-            row![
-                widget::checkbox(self.config.show_footnotes).on_toggle(Message::ToggleFootnotes),
-                text::caption(fl!("show-footnotes-label")),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        ]
-            .spacing(6)
-            .width(Length::FillPortion(2));
+        let settings_button =
+            widget::button::icon(widget::icon::from_name("preferences-system-symbolic"))
+                .on_press(Message::Settings(SM::Toggle));
 
         let bar = row![
             self.labeled_field(fl!("label-reference"), reference_input.into(), 4),
             self.labeled_field(fl!("label-translation"), self.view_bible_dropdown(), 2),
             self.labeled_field(fl!("label-book"), self.view_book_dropdown(), 3),
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
-            footnotes_toggle,
-            bookmarks_button,
+            column![bookmarks_button, settings_button,]
         ]
-            .spacing(24)
-            .align_y(Alignment::End)
-            .width(Length::Fill);
+        .spacing(24)
+        .align_y(Alignment::End)
+        .width(Length::Fill);
 
         container(bar)
             .padding(16)
@@ -171,7 +169,10 @@ impl CharistApp {
 
     fn view_bible_dropdown(&self) -> Element<'_, Message> {
         let options: Vec<String> = BIBLE_OPTIONS.iter().map(|o| o.name.to_string()).collect();
-        dropdown(options, self.selected_bible, Message::SelectBible).into()
+        dropdown(options, self.selected_bible, |idx| {
+            Message::Bible(BM::Select(idx))
+        })
+        .into()
     }
 
     fn view_book_dropdown(&self) -> Element<'_, Message> {
@@ -190,7 +191,10 @@ impl CharistApp {
             .as_ref()
             .and_then(|k| bible.book_order.iter().position(|x| x == k));
 
-        dropdown(options, selected, Message::SelectBookIndex).into()
+        dropdown(options, selected, |idx| {
+            Message::Bible(BM::SelectBookIndex(idx))
+        })
+        .into()
     }
 
     fn view_chapter_dropdown(&self) -> Element<'_, Message> {
@@ -204,7 +208,10 @@ impl CharistApp {
         let options: Vec<String> = (1..=book.chapters.len()).map(|n| n.to_string()).collect();
         let selected = self.chapter.map(|c| c - 1);
 
-        dropdown(options, selected, Message::SelectChapterIndex).into()
+        dropdown(options, selected, |idx| {
+            Message::Bible(BM::SelectChapterIndex(idx))
+        })
+        .into()
     }
 
     fn view_verses(&self) -> Element<'_, Message> {
@@ -237,16 +244,16 @@ impl CharistApp {
                     .align_x(Alignment::End),
                 self.view_verse_text(verse),
             ]
-                .spacing(14)
-                .align_y(Alignment::Start);
+            .spacing(14)
+            .align_y(Alignment::Start);
             let clickable = container(verse_row)
                 .padding([6, 10])
                 .width(Length::Fill)
                 .style(move |theme: &cosmic::Theme| verse_style(theme, is_selected));
 
             let mouse_wrapped = mouse_area(clickable)
-                .on_press(Message::VerseClicked(verse_num))
-                .on_right_press(Message::VerseRightClicked(verse_num));
+                .on_press(Message::Verse(VM::Clicked(verse_num)))
+                .on_right_press(Message::Verse(VM::RightClicked(verse_num)));
 
             let is_popup_open = matches!(&self.verse_popup, Some((v, _)) if *v == verse_num);
 
@@ -331,57 +338,7 @@ impl CharistApp {
         }
 
         rich_text(spans)
-            .on_link_click(Message::FootnoteClicked)
-            .into()
-    }
-
-    fn view_footnote_popup(&self, link: &FootnoteLink) -> Element<'_, Message> {
-        let (title, body): (String, Element<'_, Message>) = match link {
-            FootnoteLink::Note { number, text } => (
-                fl!("note-title", number = to_superscript(*number)),
-                text::body(text.clone()).into(),
-            ),
-            FootnoteLink::CrossRef { number, refs } => {
-                let mut list = column![].spacing(6);
-                for r in refs {
-                    list = list.push(self.view_cross_ref_item(r));
-                }
-                (
-                    fl!("cross-reference-title", number = to_superscript_letter(*number)),
-                    list.into(),
-                )
-            }
-        };
-
-        let card_content = column![
-            row![
-                text::title4(title),
-                widget::button::text(fl!("close-button")).on_press(Message::CloseModal),
-            ]
-            .align_y(Alignment::Center)
-            .width(Length::Fill),
-            divider::horizontal::default(),
-            body,
-        ]
-            .spacing(10)
-            .padding(16)
-            .width(Length::Fixed(380.0));
-
-        let card = container(card_content).class(cosmic::theme::Container::Card);
-
-        let centered = container(card)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill);
-
-        mouse_area(
-            container(centered)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(backdrop_style),
-        )
-            .on_press(Message::CloseModal)
+            .on_link_click(|link| Message::Verse(VM::FootnoteClicked(link)))
             .into()
     }
 
@@ -401,7 +358,7 @@ impl CharistApp {
             .style(cross_ref_item_style);
 
         mouse_area(clickable)
-            .on_press(Message::CrossRefClicked(raw.to_string()))
+            .on_press(Message::Reference(RM::CrossRefClicked(raw.to_string())))
             .into()
     }
 
@@ -440,22 +397,25 @@ impl CharistApp {
     fn verse_popup_content(&self) -> Element<'_, Message> {
         let content: Element<'_, Message> = match &self.verse_popup {
             Some((_, VersePopup::Menu)) => column![
-                button::text(fl!("copy-button")).on_press(Message::CopySelection),
-                button::text(fl!("add-bookmark-button")).on_press(Message::AddBookmark),
-                button::text(fl!("add-bookmark-note-button")).on_press(Message::OpenNoteInput),
+                button::text(fl!("copy-button")).on_press(Message::Verse(VM::CopySelection)),
+                button::text(fl!("add-bookmark-button")).on_press(Message::Bookmark(BkM::Add)),
+                button::text(fl!("add-bookmark-note-button"))
+                    .on_press(Message::Verse(VM::OpenNoteInput)),
             ]
-                .spacing(4)
-                .into(),
+            .spacing(4)
+            .into(),
             Some((_, VersePopup::Note(text))) => column![
-                text_input(fl!("note-placeholder"), text).on_input(Message::NoteTextChanged),
+                text_input(fl!("note-placeholder"), text)
+                    .on_input(|s| Message::Verse(VM::NoteTextChanged(s))),
                 row![
-                    button::suggested(fl!("save-button")).on_press(Message::SaveNoteBookmark),
-                    button::standard(fl!("cancel-button")).on_press(Message::CloseVersePopup),
+                    button::suggested(fl!("save-button"))
+                        .on_press(Message::Bookmark(BkM::SaveNote)),
+                    button::standard(fl!("cancel-button")).on_press(Message::Verse(VM::ClosePopup)),
                 ]
                 .spacing(8),
             ]
-                .spacing(8)
-                .into(),
+            .spacing(8)
+            .into(),
             None => column![].into(),
         };
 
@@ -480,18 +440,22 @@ impl CharistApp {
                             list = list.push(self.view_cross_ref_item(r));
                         }
                         (
-                            fl!("cross-reference-title", number = to_superscript_letter(*number)),
+                            fl!(
+                                "cross-reference-title",
+                                number = to_superscript_letter(*number)
+                            ),
                             list.into(),
                         )
                     }
                 };
                 self.view_modal_shell(title, body, 380.0)
             }
-            Modal::Bookmarks => self.view_modal_shell(
-                fl!("bookmarks-title"),
-                self.bookmarks_list_content(),
-                380.0,
-            ),
+            Modal::Bookmarks => {
+                self.view_modal_shell(fl!("bookmarks-title"), self.bookmarks_list_content(), 380.0)
+            }
+            Modal::Settings => {
+                self.view_modal_shell(fl!("settings-title"), self.settings_content(), 420.0)
+            }
         }
     }
 
@@ -520,7 +484,7 @@ impl CharistApp {
                 "{book_name} {}{verse_suffix}",
                 bm.chapter
             ))]
-                .spacing(2);
+            .spacing(2);
 
             if let Some(label) = &bm.label {
                 label_col = label_col.push(text::caption(label.clone()));
@@ -528,22 +492,82 @@ impl CharistApp {
 
             let row_content = row![
                 label_col,
-                // widget::horizontal_space(),
                 widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
-                    .on_press(Message::RemoveBookmark(idx)),
+                    .on_press(Message::Bookmark(BkM::Remove(idx))),
             ]
-                .align_y(Alignment::Center)
-                .spacing(8)
-                .width(Length::Fill);
+            .align_y(Alignment::Center)
+            .spacing(8)
+            .width(Length::Fill);
 
             let clickable = container(row_content)
                 .padding(10)
                 .width(Length::Fill)
                 .style(cross_ref_item_style);
 
-            list = list.push(mouse_area(clickable).on_press(Message::JumpToBookmark(idx)));
+            list = list.push(mouse_area(clickable).on_press(Message::Bookmark(BkM::JumpTo(idx))));
         }
 
         scrollable(list).height(Length::Fixed(320.0)).into()
+    }
+
+    fn settings_content(&self) -> Element<'_, Message> {
+        let footnotes_row = row![
+            widget::toggler(self.config.show_footnotes)
+                .on_toggle(|enabled| Message::Verse(VM::ToggleFootnotes(enabled))),
+            text::body(fl!("show-footnotes-label")),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let verse_numbers_row = row![
+            widget::toggler(self.config.copy_includes_verse_numbers)
+                .on_toggle(|enabled| Message::Settings(SM::ToggleCopyVerseNumbers(enabled))),
+            text::body(fl!("copy-verse-numbers-label")),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let newline_row = row![
+            widget::toggler(self.config.copy_delimitate_with_newline)
+                .on_toggle(|enabled| Message::Settings(SM::ToggleCopyDelimiter(enabled))),
+            text::body(fl!("copy-newline-label")),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let policy_options = vec![
+            fl!("copy-reference-none"),
+            fl!("copy-reference-top"),
+            fl!("copy-reference-bottom"),
+        ];
+        let policy_selected = match self.config.copy_includes_reference_policy {
+            CopyIncludeReferencePolicy::DoNot => 0,
+            CopyIncludeReferencePolicy::Top => 1,
+            CopyIncludeReferencePolicy::Bottom => 2,
+        };
+        let policy_dropdown = dropdown(policy_options, Some(policy_selected), |idx| {
+            let policy = match idx {
+                1 => CopyIncludeReferencePolicy::Top,
+                2 => CopyIncludeReferencePolicy::Bottom,
+                _ => CopyIncludeReferencePolicy::DoNot,
+            };
+            Message::Settings(SM::SetCopyReferencePolicy(policy))
+        });
+
+        column![
+            text::title4(fl!("settings-general-section")),
+            footnotes_row,
+            divider::horizontal::default(),
+            text::title4(fl!("settings-copy-section")),
+            verse_numbers_row,
+            newline_row,
+            self.labeled_field(fl!("copy-reference-label"), policy_dropdown.into(), 1,),
+            divider::horizontal::default(),
+            text::title4(fl!("settings-bibles-section")),
+            text::caption(fl!("settings-bibles-coming-soon")),
+        ]
+        .spacing(12)
+        .width(Length::Fill)
+        .into()
     }
 }
