@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"] // no console window on windows
+
 use crate::app::CharistApp;
 use cosmic::app::Settings;
 
