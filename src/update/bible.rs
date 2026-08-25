@@ -2,6 +2,7 @@ use crate::app::{BIBLE_OPTIONS, CharistApp};
 use crate::bibles::load_bible_from_bytes;
 use crate::update::Message;
 use cosmic::Task;
+use crate::search_index::BibleIndex;
 
 #[derive(Debug, Clone)]
 pub enum BibleMessage {
@@ -17,6 +18,7 @@ impl CharistApp {
                 if let Some(opt) = BIBLE_OPTIONS.get(idx) {
                     match load_bible_from_bytes(opt.bytes) {
                         Ok(data) => {
+                            self.bible_index = Some(BibleIndex::build(&data).unwrap());
                             self.selected_bible = Some(idx);
                             self.bible = Some(data);
                             self.book_key = None;

@@ -9,6 +9,7 @@ mod debug_utils;
 mod footnotes;
 mod i18n;
 mod references;
+mod search_index;
 mod state;
 mod style;
 pub mod update;

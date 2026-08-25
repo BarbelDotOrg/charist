@@ -1,12 +1,14 @@
 mod bible;
 mod bookmark;
 mod reference;
+mod search;
 mod settings;
 mod verse;
 
 pub use bible::BibleMessage;
 pub use bookmark::BookmarkMessage;
 pub use reference::ReferenceMessage;
+pub use search::SearchMessage;
 pub use settings::SettingsMessage;
 pub use verse::VerseMessage;
 
@@ -23,8 +25,8 @@ pub enum Message {
     Verse(VerseMessage),
     Bookmark(BookmarkMessage),
     Settings(SettingsMessage),
+    Search(SearchMessage),
 
-    // Genuinely app-wide — doesn't belong to any single feature.
     ModifiersChanged(cosmic::iced::keyboard::Modifiers),
     FocusInput, // Window opened
     CloseModal,
@@ -43,6 +45,7 @@ impl CharistApp {
             Message::Verse(msg) => return self.update_verse(msg),
             Message::Bookmark(msg) => return self.update_bookmark(msg),
             Message::Settings(msg) => self.update_settings(msg),
+            Message::Search(msg) => return self.update_search(msg),
 
             Message::ModifiersChanged(m) => {
                 self.modifiers = m;

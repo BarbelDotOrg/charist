@@ -26,9 +26,11 @@ lazy_static = "=1.5.0"
 rust-embed = "=8.12.0"
 i18n-embed = { version = "=0.16.0", features = ["fluent-system", "desktop-requester", ] }
 i18n-embed-fl = "=0.10.1"
+tantivy = "=0.26.1"
+log = "0.4.33"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-libcosmic = { git = "https://github.com/pop-os/libcosmic.git", rev = "a5267e623f356d1792cba7f480dd671cc8b52406", features = ["winit", "tokio", "wgpu"] }
+libcosmic = { git = "https://github.com/pop-os/libcosmic.git", rev = "a5267e623f356d1792cba7f480dd671cc8b52406", features = ["winit", "tokio", "wgpu", "debug"] }
 
 # TODO a better fix than software rendering on windows
 [target.'cfg(target_os = "windows")'.dependencies]

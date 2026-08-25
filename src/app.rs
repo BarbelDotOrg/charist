@@ -3,7 +3,7 @@ use crate::config::{AppConfig, Bookmark, CopyIncludeReferencePolicy};
 use crate::fl;
 use crate::footnotes::FootnoteLink;
 use crate::references::{Reference, parse_reference};
-use crate::update::{Message, VerseMessage};
+use crate::update::{Message, SearchMessage, VerseMessage};
 use crate::view;
 use cosmic::app::Settings as _; // no-op import guard removed below if unused
 use cosmic::cosmic_config::{Config, CosmicConfigEntry};
@@ -16,6 +16,7 @@ use cosmic::{
 };
 use std::collections::BTreeSet;
 use std::process::exit;
+use crate::search_index::BibleIndex;
 
 pub(crate) struct BibleOption {
     pub(crate) name: &'static str,
@@ -27,6 +28,7 @@ pub(crate) enum Modal {
     Footnote(FootnoteLink),
     Bookmarks,
     Settings,
+    Search,
 }
 
 pub(crate) const BIBLE_OPTIONS: &[BibleOption] = &[
@@ -63,6 +65,9 @@ pub struct CharistApp {
 
     pub(crate) modal: Option<Modal>, // replaces open_footnote
     pub(crate) verse_popup: Option<(usize, VersePopup)>,
+
+    pub(crate) search_query: String,
+    pub(crate) bible_index: Option<BibleIndex>,
 }
 
 impl Application for CharistApp {
@@ -92,6 +97,7 @@ impl Application for CharistApp {
             })
             .unwrap_or_default();
 
+        // TODO use a default trait
         let mut app = CharistApp {
             core,
             config: config.clone(),
@@ -106,6 +112,8 @@ impl Application for CharistApp {
             reference_error: None,
             modal: None,
             verse_popup: None,
+            search_query: String::new(),
+            bible_index: None
         };
 
         let bible_opt = BIBLE_OPTIONS
@@ -117,6 +125,7 @@ impl Application for CharistApp {
                 app.selected_bible = BIBLE_OPTIONS
                     .iter()
                     .position(|b| std::ptr::eq(b, bible_opt));
+                app.bible_index = Some(BibleIndex::build(&data).unwrap());
                 app.bible = Some(data);
 
                 // Restore book/chapter only if still valid for this translation.
@@ -135,7 +144,7 @@ impl Application for CharistApp {
             Err(err) => eprintln!("failed to load default bible '{}': {err}", bible_opt.name),
         }
 
-        let command = app.update_title();
+                let command = app.update_title();
         (app, command)
     }
 
@@ -154,6 +163,10 @@ impl Application for CharistApp {
                         && key == cosmic::iced::keyboard::Key::Character("c".into())
                     {
                         Some(Message::Verse(VerseMessage::CopySelection))
+                    } else if modifiers.command()
+                        && key == cosmic::iced::keyboard::Key::Character("f".into())
+                    {
+                        Some(Message::Search(SearchMessage::Toggle))
                     } else {
                         None
                     }

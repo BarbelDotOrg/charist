@@ -46,3 +46,8 @@ copy-reference-label = Include reference
 copy-reference-none = Don't include
 copy-reference-top = Above text
 copy-reference-bottom = Below text
+
+# Search
+search-title = Search
+search-placeholder = Search verse text…
+no-search-results = No matches found

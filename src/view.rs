@@ -9,14 +9,15 @@ use crate::footnotes::{
 use crate::style::{backdrop_style, cross_ref_item_style, error_banner_style, verse_style};
 use crate::update::{
     BibleMessage as BM, BookmarkMessage as BkM, Message, ReferenceMessage as RM,
-    SettingsMessage as SM, VerseMessage as VM,
+    SearchMessage as SeM, SettingsMessage as SM, VerseMessage as VM,
 };
 use cosmic::Element;
 use cosmic::iced::widget::text::Span as RichSpan;
 use cosmic::iced::widget::{mouse_area, rich_text, span, stack};
 use cosmic::iced::{Alignment, Color, Length};
 use cosmic::widget::{
-    self, button, column, container, divider, dropdown, popover, row, scrollable, text, text_input,
+    self, button, column, container, divider, dropdown, icon, popover, row, scrollable, text,
+    text_input,
 };
 
 pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
@@ -96,18 +97,18 @@ impl CharistApp {
         width: f32,
     ) -> Element<'a, Message> {
         let card_content = column![
-        row![
-            text::title4(title),
-            widget::button::text(fl!("close-button")).on_press(Message::CloseModal),
+            row![
+                text::title4(title),
+                widget::button::text(fl!("close-button")).on_press(Message::CloseModal),
+            ]
+            .align_y(Alignment::Center)
+            .width(Length::Fill),
+            divider::horizontal::default(),
+            body,
         ]
-        .align_y(Alignment::Center)
-        .width(Length::Fill),
-        divider::horizontal::default(),
-        body,
-    ]
-            .spacing(10)
-            .padding(16)
-            .width(Length::Fixed(width));
+        .spacing(10)
+        .padding(16)
+        .width(Length::Fixed(width));
 
         let card = container(card_content).class(cosmic::theme::Container::Card);
 
@@ -127,8 +128,8 @@ impl CharistApp {
                 .height(Length::Fill)
                 .style(backdrop_style),
         )
-            .on_press(Message::CloseModal)
-            .into()
+        .on_press(Message::CloseModal)
+        .into()
     }
 
     fn view_controls(&self) -> Element<'_, Message> {
@@ -149,12 +150,15 @@ impl CharistApp {
             widget::button::icon(widget::icon::from_name("preferences-system-symbolic"))
                 .on_press(Message::Settings(SM::Toggle));
 
+        let search_button = button::icon(icon::from_name("edit-find-symbolic"))
+            .on_press(Message::Search(SeM::Toggle));
+
         let bar = row![
             self.labeled_field(fl!("label-reference"), reference_input.into(), 4),
             self.labeled_field(fl!("label-translation"), self.view_bible_dropdown(), 2),
             self.labeled_field(fl!("label-book"), self.view_book_dropdown(), 3),
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
-            column![bookmarks_button, settings_button,]
+            column![bookmarks_button, settings_button, search_button]
         ]
         .spacing(24)
         .align_y(Alignment::End)
@@ -456,6 +460,9 @@ impl CharistApp {
             Modal::Settings => {
                 self.view_modal_shell(fl!("settings-title"), self.settings_content(), 420.0)
             }
+            Modal::Search => {
+                self.view_modal_shell(fl!("search-title"), self.search_content(), 460.0)
+            }
         }
     }
 
@@ -569,5 +576,50 @@ impl CharistApp {
         .spacing(12)
         .width(Length::Fill)
         .into()
+    }
+
+    fn search_content(&self) -> Element<'_, Message> {
+        let input = text_input(fl!("search-placeholder"), &self.search_query)
+            .id(widget::Id::new("search_input"))
+            .on_input(|s| Message::Search(SeM::QueryChanged(s)))
+            .width(Length::Fill);
+
+        let mut column_body = column![input].spacing(10).width(Length::Fill);
+
+        if self.search_query.trim().is_empty() {
+            return column_body.into();
+        }
+
+        let results = self.search_results();
+
+        if results.is_empty() {
+            column_body = column_body.push(text::caption(fl!("no-search-results")));
+            return column_body.into();
+        }
+
+        let mut list = column![].spacing(6);
+        for r in &results {
+            let item = column![
+                text::body(format!("{} {}:{}", r.book_name, r.chapter, r.verse)),
+                text::caption(r.snippet.clone()),
+            ]
+            .spacing(2);
+
+            let clickable = container(item)
+                .padding(10)
+                .width(Length::Fill)
+                .style(cross_ref_item_style);
+
+            list = list.push(
+                mouse_area(clickable).on_press(Message::Search(SeM::ResultClicked {
+                    book_key: r.book_key.clone(),
+                    chapter: r.chapter,
+                    verse: r.verse,
+                })),
+            );
+        }
+
+        column_body = column_body.push(scrollable(list).height(Length::Fixed(360.0)));
+        column_body.into()
     }
 }
