@@ -6,6 +6,9 @@ description = "Intuitive bible reader"
 authors = ["Barbel"]
 license = "AGPL-3"
 
+[[bin]]
+name = "charist"
+
 # rust binaries are morbiously a beast
 # this makes them smaller
 [profile.release]
