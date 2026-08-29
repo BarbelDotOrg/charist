@@ -11,6 +11,13 @@ options=('!strip' '!lto')
 
 prepare() {
   cd "${startdir}"
+  echo "== DEBUG =="
+  echo "pwd: $(pwd)"
+  whoami
+  git -C "${startdir}" status 2>&1 || echo "git status failed"
+  git -C "${startdir}" rev-parse --show-toplevel 2>&1 || echo "rev-parse failed"
+  ls -la "${startdir}/src" 2>&1 || echo "src missing"
+  echo "== END DEBUG =="
   cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
 }
 
