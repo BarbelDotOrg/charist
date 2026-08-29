@@ -6,7 +6,20 @@ pkgdesc="Intuitive Bible reader"
 arch=('x86_64')
 license=('AGPL-3.0-only')
 depends=('gcc-libs' 'glibc' 'wayland' 'libxkbcommon')
-options=('!strip')
+makedepends=('cargo')
+options=('!strip' '!lto')
+
+prepare() {
+  cd "${startdir}"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "${startdir}"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
 
 package() {
   if [ -f "${startdir}/target/x86_64-unknown-linux-gnu/release/${pkgname}" ]; then
@@ -14,12 +27,9 @@ package() {
   else
     BIN_PATH="${startdir}/target/release/${pkgname}"
   fi
-
   install -Dm755 "${BIN_PATH}" "${pkgdir}/usr/bin/${pkgname}"
-
   install -Dm644 "${startdir}/resources/org.barbel.Charist.desktop" \
     "${pkgdir}/usr/share/applications/org.barbel.Charist.desktop"
-
   install -Dm644 "${startdir}/resources/icons/hicolor/scalable/apps/org.barbel.Charist.svg" \
     "${pkgdir}/usr/share/icons/hicolor/scalable/apps/org.barbel.Charist.svg"
 }
