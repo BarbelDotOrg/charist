@@ -13,6 +13,9 @@ prepare() {
   cd "${startdir}"
   echo "== DEBUG =="
   echo "pwd: $(pwd)"
+  rustc --version
+  cargo --version
+  rustup --version 2>&1 || echo "rustup not installed"
   whoami
   git -C "${startdir}" status 2>&1 || echo "git status failed"
   git -C "${startdir}" rev-parse --show-toplevel 2>&1 || echo "rev-parse failed"
