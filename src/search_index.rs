@@ -18,6 +18,8 @@ pub struct BibleIndex {
 
 impl BibleIndex {
     pub fn build(bible: &BibleData) -> Result<Self, tantivy::TantivyError> {
+        const MEMORY_BUDGET_BYTES: usize = 50_000_000;
+
         trace("Build bible index", || {
             let mut schema_builder = Schema::builder();
 
@@ -37,7 +39,7 @@ impl BibleIndex {
             let index = Index::create_in_ram(schema);
 
             // 3. Populate index (allocate 50MB RAM buffer for index writer)
-            let mut writer: IndexWriter = index.writer(50_000_000)?;
+            let mut writer: IndexWriter = index.writer(MEMORY_BUDGET_BYTES)?;
 
             for key in &bible.book_order {
                 if let Some(book) = bible.books.get(key) {
