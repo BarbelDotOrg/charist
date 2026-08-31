@@ -1,26 +1,7 @@
 #![windows_subsystem = "windows"] // no console window on windows
 
-use crate::app::CharistApp;
-use cosmic::app::Settings;
-
-mod app;
-mod assets;
-pub mod bibles;
-mod config;
-mod debug_utils;
-mod footnotes;
-mod i18n;
-mod references;
-mod search_index;
-mod state;
-mod style;
-pub mod update;
-mod view;
+use charist::run;
 
 fn main() -> cosmic::iced::Result {
-    let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
-    i18n::init(&requested_languages);
-
-    let settings = Settings::default();
-    cosmic::app::run::<CharistApp>(settings, ())
+    run()
 }
