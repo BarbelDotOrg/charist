@@ -40,6 +40,14 @@ pub(crate) const BIBLE_OPTIONS: &[BibleOption] = &[
         name: "CPDV",
         bytes: crate::assets::CPDV,
     },
+    BibleOption {
+        name: "KJV",
+        bytes: crate::assets::KJV,
+    },
+    BibleOption {
+        name: "DRC",
+        bytes: crate::assets::DRC,
+    },
 ];
 
 #[derive(Debug, Clone)]

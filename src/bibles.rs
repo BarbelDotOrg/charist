@@ -7,6 +7,8 @@ pub struct BibleData {
     pub meta: Meta,
     pub book_order: Vec<String>,
     pub books: HashMap<String, Book>,
+    pub language: String,
+    pub description: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

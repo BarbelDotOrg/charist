@@ -1,0 +1,42 @@
+{
+  "English": [
+    {
+      "name": "KJV",
+      "long_name": "King James Version",
+      "description": "The 1611 English translation commissioned by King James I, prized for its literary influence and traditional English phrasing.",
+      "download_links": ["https://barbel.org/charist/bibles/kjv.cbor"]
+    },
+    {
+      "name": "NASB",
+      "long_name": "New American Standard Bible",
+      "description": "A modern, formal-equivalence English translation known for close word-for-word accuracy to the Hebrew and Greek texts.",
+      "download_links": ["https://barbel.org/charist/bibles/nasb.cbor"]
+    },
+    {
+      "name": "DRC",
+      "long_name": "Douay-Rheims Catholic Bible (Challoner Revision)",
+      "description": "An English translation of the Latin Vulgate produced by English Catholic scholars, most commonly used in its 18th-century Challoner revision.",
+      "download_links": ["https://barbel.org/charist/bibles/drc.cbor"]
+    },
+    {
+      "name": "CPDV",
+      "long_name": "Catholic Public Domain Version",
+      "description": "A modern public-domain English translation of the Latin Vulgate, prepared for accuracy and readability in a Catholic context.",
+      "download_links": ["https://barbel.org/charist/bibles/cpdv.cbor"]
+    }
+  ],
+  "French": [
+    {
+      "name": "FreSegond1910",
+      "long_name": "Louis Segond (1910)",
+      "description": "Traduction française classique réalisée par Louis Segond en 1910, largement utilisée dans les milieux protestants francophones.",
+      "download_links": ["https://barbel.org/charist/bibles/fresegond1910.cbor"]
+    },
+    {
+      "name": "FreVulgGlaire",
+      "long_name": "Bible Glaire (Vulgate française)",
+      "description": "Traduction française de la Vulgate latine par Mgr Jean-Baptiste Glaire, largement utilisée dans les milieux catholiques francophones.",
+      "download_links": ["https://barbel.org/charist/bibles/frevulgglaire.cbor"]
+    }
+  ]
+}
