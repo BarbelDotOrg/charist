@@ -1,8 +1,8 @@
 use crate::app::{BIBLE_OPTIONS, CharistApp};
 use crate::bibles::load_bible_from_bytes;
+use crate::search_index::BibleIndex;
 use crate::update::Message;
 use cosmic::Task;
-use crate::search_index::BibleIndex;
 
 #[derive(Debug, Clone)]
 pub enum BibleMessage {

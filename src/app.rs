@@ -3,6 +3,7 @@ use crate::config::{AppConfig, Bookmark, CopyIncludeReferencePolicy};
 use crate::fl;
 use crate::footnotes::FootnoteLink;
 use crate::references::{Reference, parse_reference};
+use crate::search_index::BibleIndex;
 use crate::update::{Message, SearchMessage, VerseMessage};
 use crate::view;
 use cosmic::app::Settings as _; // no-op import guard removed below if unused
@@ -16,7 +17,6 @@ use cosmic::{
 };
 use std::collections::BTreeSet;
 use std::process::exit;
-use crate::search_index::BibleIndex;
 
 pub(crate) struct BibleOption {
     pub(crate) name: &'static str,
@@ -121,7 +121,7 @@ impl Application for CharistApp {
             modal: None,
             verse_popup: None,
             search_query: String::new(),
-            bible_index: None
+            bible_index: None,
         };
 
         let bible_opt = BIBLE_OPTIONS
@@ -152,7 +152,7 @@ impl Application for CharistApp {
             Err(err) => eprintln!("failed to load default bible '{}': {err}", bible_opt.name),
         }
 
-                let command = app.update_title();
+        let command = app.update_title();
         (app, command)
     }
 

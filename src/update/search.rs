@@ -70,7 +70,8 @@ impl CharistApp {
         const MAX_RESULTS: usize = 100;
 
         trace("search", || {
-            let (Some(bible_index), query_str) = (&self.bible_index, self.search_query.trim()) else {
+            let (Some(bible_index), query_str) = (&self.bible_index, self.search_query.trim())
+            else {
                 return Vec::new();
             };
 
@@ -90,13 +91,11 @@ impl CharistApp {
             };
 
             // Remove the `&` borrowing operator in front of TopDocs
-            let top_docs = match searcher.search(
-                &query,
-                &TopDocs::with_limit(MAX_RESULTS).order_by_score(),
-            ) {
-                Ok(docs) => docs,
-                Err(_) => return Vec::new(),
-            };
+            let top_docs =
+                match searcher.search(&query, &TopDocs::with_limit(MAX_RESULTS).order_by_score()) {
+                    Ok(docs) => docs,
+                    Err(_) => return Vec::new(),
+                };
 
             let mut results = Vec::with_capacity(top_docs.len());
 

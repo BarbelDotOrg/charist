@@ -1,11 +1,12 @@
-use cosmic::app::Settings;
 use crate::app::CharistApp;
+use cosmic::app::Settings;
 
 pub mod app;
 mod assets;
 pub mod bibles;
 pub mod config;
 pub mod debug_utils;
+pub mod download;
 pub mod footnotes;
 pub mod i18n;
 pub mod references;

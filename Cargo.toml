@@ -31,6 +31,7 @@ i18n-embed = { version = "=0.16.0", features = ["fluent-system", "desktop-reques
 i18n-embed-fl = "=0.10.1"
 tantivy = "=0.26.1"
 log = "0.4.33"
+reqwest = {version = "=0.13.4", features = ["json"]}
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libcosmic = { git = "https://github.com/pop-os/libcosmic.git", features = ["winit", "tokio", "wgpu"] }

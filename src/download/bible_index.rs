@@ -1,5 +1,7 @@
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
+
+const BIBLE_INDEX_URL: &str = "https://barbel.org/charist/index.json";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct IndexedBible {
@@ -12,8 +14,6 @@ pub struct IndexedBible {
 // language to available bibles
 pub type BibleIndex = HashMap<String, Vec<IndexedBible>>;
 
-impl BibleIndex {
-    pub fn url() -> String {
-        "https://barbel.org/charist/index.json".to_string()
-    }
+pub async fn fetch_bible_index() -> Result<BibleIndex, Box<dyn std::error::Error>> {
+    Ok(reqwest::get(BIBLE_INDEX_URL).await?.json().await?)
 }

@@ -1,9 +1,11 @@
-use tantivy::schema::{Schema, TEXT, STORED, STRING, FAST, Field, IndexRecordOption, TextFieldIndexing, TextOptions};
-use tantivy::{Index, IndexReader, IndexWriter, doc, ReloadPolicy};
-use tantivy::query::QueryParser;
-use log::trace;
 use crate::bibles::BibleData;
 use crate::debug_utils::trace;
+use log::trace;
+use tantivy::query::QueryParser;
+use tantivy::schema::{
+    FAST, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TextFieldIndexing, TextOptions,
+};
+use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, doc};
 
 pub struct BibleIndex {
     pub index: Index,
@@ -60,7 +62,8 @@ impl BibleIndex {
             writer.commit()?;
 
             // 4. Create reusable reader
-            let reader = index.reader_builder()
+            let reader = index
+                .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommitWithDelay)
                 .try_into()?;
 
@@ -76,4 +79,3 @@ impl BibleIndex {
         })
     }
 }
-
