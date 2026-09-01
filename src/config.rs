@@ -20,7 +20,7 @@ pub enum CopyIncludeReferencePolicy {
 #[derive(Debug, Clone, CosmicConfigEntry, Eq, PartialEq)]
 #[version = 0]
 pub struct AppConfig {
-    pub bible_index: usize,
+    pub selected_bible: Option<String>,
     pub book_key: Option<String>,
     pub chapter: Option<usize>,
     pub bookmarks: Vec<Bookmark>,
@@ -35,7 +35,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            bible_index: 0,
+            selected_bible: None,
             book_key: None,
             chapter: None,
             bookmarks: vec![],

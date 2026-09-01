@@ -1,22 +1,20 @@
-use crate::bibles::{BibleData, load_bible_from_bytes};
-use crate::config::{AppConfig, Bookmark, CopyIncludeReferencePolicy};
-use crate::fl;
+use crate::bibles::BibleData;
+use crate::config::AppConfig;
+use crate::consts::APP_ID;
 use crate::footnotes::FootnoteLink;
-use crate::references::{Reference, parse_reference};
+use crate::library::catalog::BibleCatalog;
+use crate::library::library::{
+    InstalledBible, ensure_default_bible_installed, list_installed, load_bible_from_disk,
+};
 use crate::search_index::BibleIndex;
 use crate::update::{Message, SearchMessage, VerseMessage};
-use crate::view;
-use cosmic::app::Settings as _; // no-op import guard removed below if unused
+use crate::view; // no-op import guard removed below if unused
 use cosmic::cosmic_config::{Config, CosmicConfigEntry};
 use cosmic::iced::Subscription;
 use cosmic::iced::keyboard::Modifiers;
 use cosmic::iced::window::Id;
-use cosmic::widget::{self, text_input};
-use cosmic::{
-    Application, ApplicationExt, Core, Element, SingleThreadExecutor, Task, cosmic_config,
-};
+use cosmic::{Application, ApplicationExt, Core, Element, SingleThreadExecutor, Task};
 use std::collections::BTreeSet;
-use std::process::exit;
 
 pub(crate) struct BibleOption {
     pub(crate) name: &'static str,
@@ -29,26 +27,8 @@ pub(crate) enum Modal {
     Bookmarks,
     Settings,
     Search,
+    BibleManagement,
 }
-
-pub(crate) const BIBLE_OPTIONS: &[BibleOption] = &[
-    BibleOption {
-        name: "NASB",
-        bytes: crate::assets::NASB,
-    },
-    BibleOption {
-        name: "CPDV",
-        bytes: crate::assets::CPDV,
-    },
-    BibleOption {
-        name: "KJV",
-        bytes: crate::assets::KJV,
-    },
-    BibleOption {
-        name: "DRC",
-        bytes: crate::assets::DRC,
-    },
-];
 
 #[derive(Debug, Clone)]
 pub(crate) enum VersePopup {
@@ -59,7 +39,13 @@ pub(crate) enum VersePopup {
 pub struct CharistApp {
     pub(crate) core: Core,
     pub(crate) config: AppConfig,
-    pub(crate) selected_bible: Option<usize>,
+
+    pub(crate) installed_bibles: Vec<InstalledBible>,
+    pub(crate) remote_catalog: Option<BibleCatalog>,
+    pub(crate) catalog_loading: bool,
+    pub(crate) downloading: Option<String>,
+    pub(crate) download_error: Option<String>,
+
     pub(crate) bible: Option<BibleData>,
     pub(crate) book_key: Option<String>,
     pub(crate) chapter: Option<usize>,
@@ -82,7 +68,7 @@ impl Application for CharistApp {
     type Executor = SingleThreadExecutor;
     type Flags = ();
     type Message = Message;
-    const APP_ID: &'static str = "org.barbel.Charist";
+    const APP_ID: &'static str = APP_ID;
 
     fn core(&self) -> &Core {
         &self.core
@@ -100,16 +86,23 @@ impl Application for CharistApp {
         _flags: Self::Flags,
     ) -> (CharistApp, cosmic::Task<cosmic::Action<Message>>) {
         let config = Config::new(Self::APP_ID, AppConfig::VERSION)
-            .map(|context| {
-                AppConfig::get_entry(&context).unwrap_or_else(|(_errors, config)| config)
-            })
+            .map(|context| AppConfig::get_entry(&context).unwrap_or_else(|(_e, c)| c))
             .unwrap_or_default();
 
-        // TODO use a default trait
+        if let Err(err) = ensure_default_bible_installed() {
+            eprintln!("failed to write default bible to disk: {err}");
+        }
+
+        let installed = list_installed();
+
         let mut app = CharistApp {
             core,
             config: config.clone(),
-            selected_bible: None,
+            installed_bibles: installed.clone(),
+            remote_catalog: None,
+            catalog_loading: false,
+            downloading: None,
+            download_error: None,
             bible: None,
             book_key: None,
             chapter: None,
@@ -124,19 +117,18 @@ impl Application for CharistApp {
             bible_index: None,
         };
 
-        let bible_opt = BIBLE_OPTIONS
-            .get(config.bible_index)
-            .unwrap_or_else(|| &BIBLE_OPTIONS[0]);
+        let name_to_load = config
+            .selected_bible
+            .clone()
+            .filter(|n| installed.iter().any(|b| &b.name == n))
+            .or_else(|| installed.first().map(|b| b.name.clone()));
 
-        match load_bible_from_bytes(bible_opt.bytes) {
-            Ok(data) => {
-                app.selected_bible = BIBLE_OPTIONS
-                    .iter()
-                    .position(|b| std::ptr::eq(b, bible_opt));
-                app.bible_index = Some(BibleIndex::build(&data).unwrap());
+        if let Some(name) = name_to_load {
+            if let Some(data) = load_bible_from_disk(&name) {
+                app.bible_index = crate::search_index::BibleIndex::build(&data).ok();
                 app.bible = Some(data);
+                app.config.selected_bible = Some(name);
 
-                // Restore book/chapter only if still valid for this translation.
                 if let Some(book_key) = &config.book_key {
                     if let Some(bible) = &app.bible {
                         if let Some(book) = bible.books.get(book_key) {
@@ -149,7 +141,6 @@ impl Application for CharistApp {
                     }
                 }
             }
-            Err(err) => eprintln!("failed to load default bible '{}': {err}", bible_opt.name),
         }
 
         let command = app.update_title();

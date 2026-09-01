@@ -1,4 +1,3 @@
-use crate::debug_utils::trace;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
@@ -101,33 +100,31 @@ lazy_static! {
 
 // this functions takes a rather long time but i found that its not a problem
 pub fn parse_reference(input: &str) -> Option<Reference> {
-    trace("parse_reference", || {
-        let caps = REF_REGEX.captures(input)?;
+    let caps = REF_REGEX.captures(input)?;
 
-        let raw_book = caps.name("book")?.as_str();
-        let normalized_key = raw_book
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .collect::<String>();
+    let raw_book = caps.name("book")?.as_str();
+    let normalized_key = raw_book
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
 
-        let osis_book = (*BOOK_MAP.get(normalized_key.as_str())?).to_string();
+    let osis_book = (*BOOK_MAP.get(normalized_key.as_str())?).to_string();
 
-        let chapter = caps
-            .name("chapter")
-            .and_then(|m| m.as_str().parse::<usize>().ok());
-        let start_verse = caps
-            .name("start_v")
-            .and_then(|m| m.as_str().parse::<usize>().ok());
-        let end_verse = caps
-            .name("end_v")
-            .and_then(|m| m.as_str().parse::<usize>().ok());
+    let chapter = caps
+        .name("chapter")
+        .and_then(|m| m.as_str().parse::<usize>().ok());
+    let start_verse = caps
+        .name("start_v")
+        .and_then(|m| m.as_str().parse::<usize>().ok());
+    let end_verse = caps
+        .name("end_v")
+        .and_then(|m| m.as_str().parse::<usize>().ok());
 
-        Some(Reference {
-            osis_book,
-            chapter,
-            start_verse,
-            end_verse,
-        })
+    Some(Reference {
+        osis_book,
+        chapter,
+        start_verse,
+        end_verse,
     })
 }

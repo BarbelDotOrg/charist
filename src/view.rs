@@ -1,4 +1,4 @@
-use crate::app::{BIBLE_OPTIONS, CharistApp, Modal, VersePopup};
+use crate::app::{CharistApp, Modal, VersePopup};
 use crate::bibles::Verse;
 use crate::config::CopyIncludeReferencePolicy;
 use crate::fl;
@@ -6,6 +6,7 @@ use crate::footnotes::{
     FootnoteLink, FootnoteMarker, collect_footnote_markers, snap_to_word_end, to_superscript,
     to_superscript_letter,
 };
+use crate::library::library::is_installed;
 use crate::style::{backdrop_style, cross_ref_item_style, error_banner_style, verse_style};
 use crate::update::{
     BibleMessage as BM, BookmarkMessage as BkM, Message, ReferenceMessage as RM,
@@ -94,7 +95,8 @@ impl CharistApp {
         &'a self,
         title: String,
         body: Element<'a, Message>,
-        width: f32,
+        // Optional: keep a max width to avoid huge cards on ultra-wide windows.
+        max_width: Option<f32>,
     ) -> Element<'a, Message> {
         let card_content = column![
             row![
@@ -108,18 +110,28 @@ impl CharistApp {
         ]
         .spacing(10)
         .padding(16)
-        .width(Length::Fixed(width));
+        .width(Length::Fill); // fill whatever width the portion below gives it
 
-        let card = container(card_content).class(cosmic::theme::Container::Card);
+        let mut card = container(card_content).class(cosmic::theme::Container::Card);
+        if let Some(mw) = max_width {
+            card = card.max_width(mw);
+        }
 
         // Swallow clicks on the card itself so they don't bubble to the
         // backdrop's on_press below and close the modal.
         let card = mouse_area(card).on_press(Message::NoOp);
 
-        let centered = container(card)
+        // 1 : 6 : 1 portions => center column is 6/8 = 75% of the row's width.
+        let sized_row = row![
+            widget::Space::new().width(Length::FillPortion(1)),
+            container(card).width(Length::FillPortion(6)),
+            widget::Space::new().width(Length::FillPortion(1)),
+        ]
+        .width(Length::Fill);
+
+        let centered = container(sized_row)
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x(Length::Fill)
             .center_y(Length::Fill);
 
         mouse_area(
@@ -146,6 +158,10 @@ impl CharistApp {
             widget::button::icon(widget::icon::from_name("user-bookmarks-symbolic"))
                 .on_press(Message::Bookmark(BkM::Toggle));
 
+        let bibles_button =
+            widget::button::icon(widget::icon::from_name("accessories-dictionary-symbolic"))
+                .on_press(Message::OpenModal(Modal::BibleManagement));
+
         let settings_button =
             widget::button::icon(widget::icon::from_name("preferences-system-symbolic"))
                 .on_press(Message::Settings(SM::Toggle));
@@ -158,7 +174,10 @@ impl CharistApp {
             self.labeled_field(fl!("label-translation"), self.view_bible_dropdown(), 2),
             self.labeled_field(fl!("label-book"), self.view_book_dropdown(), 3),
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
-            column![row![bookmarks_button, settings_button], row![search_button]]
+            column![
+                row![bibles_button, settings_button],
+                row![search_button, bookmarks_button]
+            ]
         ]
         .spacing(24)
         .align_y(Alignment::End)
@@ -172,9 +191,27 @@ impl CharistApp {
     }
 
     fn view_bible_dropdown(&self) -> Element<'_, Message> {
-        let options: Vec<String> = BIBLE_OPTIONS.iter().map(|o| o.name.to_string()).collect();
-        dropdown(options, self.selected_bible, |idx| {
-            Message::Bible(BM::Select(idx))
+        if self.installed_bibles.is_empty() {
+            return text::caption(fl!("no-bibles-installed-short")).into();
+        }
+        let options: Vec<String> = self
+            .installed_bibles
+            .iter()
+            .map(|b| b.name.clone())
+            .collect();
+        let selected = self
+            .config
+            .selected_bible
+            .as_ref()
+            .and_then(|name| self.installed_bibles.iter().position(|b| &b.name == name));
+
+        let names: Vec<String> = self
+            .installed_bibles
+            .iter()
+            .map(|b| b.name.clone())
+            .collect();
+        dropdown(options, selected, move |idx| {
+            Message::Bible(BM::SelectInstalled(names[idx].clone()))
         })
         .into()
     }
@@ -452,17 +489,24 @@ impl CharistApp {
                         )
                     }
                 };
-                self.view_modal_shell(title, body, 380.0)
+                self.view_modal_shell(title, body, None)
             }
-            Modal::Bookmarks => {
-                self.view_modal_shell(fl!("bookmarks-title"), self.bookmarks_list_content(), 380.0)
-            }
+            Modal::Bookmarks => self.view_modal_shell(
+                fl!("bookmarks-title"),
+                self.bookmarks_list_content(),
+                Some(560.0),
+            ),
             Modal::Settings => {
-                self.view_modal_shell(fl!("settings-title"), self.settings_content(), 420.0)
+                self.view_modal_shell(fl!("settings-title"), self.settings_content(), Some(640.0))
             }
             Modal::Search => {
-                self.view_modal_shell(fl!("search-title"), self.search_content(), 460.0)
+                self.view_modal_shell(fl!("search-title"), self.search_content(), Some(680.0))
             }
+            Modal::BibleManagement => self.view_modal_shell(
+                fl!("bible-management-title"),
+                self.settings_bibles_section(),
+                Some(560.0),
+            ),
         }
     }
 
@@ -570,8 +614,6 @@ impl CharistApp {
             newline_row,
             self.labeled_field(fl!("copy-reference-label"), policy_dropdown.into(), 1,),
             divider::horizontal::default(),
-            text::title4(fl!("settings-bibles-section")),
-            text::caption(fl!("settings-bibles-coming-soon")),
         ]
         .spacing(12)
         .width(Length::Fill)
@@ -621,5 +663,93 @@ impl CharistApp {
 
         column_body = column_body.push(scrollable(list).height(Length::Fixed(360.0)));
         column_body.into()
+    }
+
+    fn settings_bibles_section(&self) -> Element<'_, Message> {
+        let mut col = column![].spacing(8).width(Length::Fill);
+
+        if self.installed_bibles.is_empty() {
+            col = col.push(text::caption(fl!("no-bibles-installed")));
+        }
+        for ib in &self.installed_bibles {
+            let is_selected = self.config.selected_bible.as_deref() == Some(ib.name.as_str());
+            let action: Element<'_, Message> = if is_selected {
+                text::caption(fl!("current-bible-label")).into()
+            } else {
+                button::text(fl!("use-button"))
+                    .on_press(Message::Bible(BM::SelectInstalled(ib.name.clone())))
+                    .into()
+            };
+            col = col.push(
+                row![
+                    container(text::body(ib.name.clone())).width(Length::Fill), // shrinkable text column, wraps instead of pushing
+                    container(action).width(Length::Shrink),                    // never squeezed
+                    widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
+                        .on_press(Message::Bible(BM::Delete(ib.name.clone()))),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            );
+        }
+
+        col = col.push(divider::horizontal::default());
+
+        match &self.remote_catalog {
+            None => {
+                let btn: Element<'_, Message> = if self.catalog_loading {
+                    text::caption(fl!("loading-label")).into()
+                } else {
+                    button::suggested(fl!("browse-bibles-button"))
+                        .on_press(Message::Bible(BM::FetchCatalog))
+                        .into()
+                };
+                col = col.push(btn);
+            }
+            Some(catalog) => {
+                for (lang, entries) in catalog {
+                    col = col.push(text::title4(lang.clone()));
+                    for entry in entries {
+                        let already = is_installed(&entry.name);
+                        let action: Element<'_, Message> = if already {
+                            text::caption(fl!("installed-label")).into()
+                        } else if self.downloading.as_deref() == Some(entry.name.as_str()) {
+                            text::caption(fl!("downloading-label")).into()
+                        } else {
+                            let url = entry.download_links.first().cloned().unwrap_or_default();
+                            button::text(fl!("library-button"))
+                                .on_press(Message::Bible(BM::Download(entry.name.clone(), url)))
+                                .into()
+                        };
+
+                        let text_col = column![
+                            text::body(entry.long_name.clone()),
+                            text::caption(entry.description.clone()),
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill); // wraps + shrinks, doesn't own the button's space
+
+                        col = col.push(
+                            row![
+                                container(text_col).width(Length::Fill),
+                                container(action).width(Length::Shrink),
+                            ]
+                            .spacing(8)
+                            .align_y(Alignment::Center),
+                        );
+                    }
+                }
+            }
+        }
+
+        if let Some(err) = &self.download_error {
+            col = col.push(text::caption(err.clone()));
+        }
+
+        // Cap the list's own height and make it scroll independently of the
+        // rest of the settings modal (toggles etc. above it stay fixed).
+        scrollable(col)
+            .height(Length::Fixed(280.0))
+            .width(Length::Fill)
+            .into()
     }
 }

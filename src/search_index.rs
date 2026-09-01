@@ -1,12 +1,9 @@
 use crate::bibles::BibleData;
 use crate::debug_utils::trace;
-use log::trace;
-use tantivy::query::QueryParser;
-use tantivy::schema::{
-    FAST, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TextFieldIndexing, TextOptions,
-};
+use tantivy::schema::{FAST, Field, STORED, STRING, Schema, TEXT};
 use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, doc};
 
+#[derive(Clone)]
 pub struct BibleIndex {
     pub index: Index,
     pub reader: IndexReader,

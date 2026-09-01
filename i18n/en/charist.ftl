@@ -51,3 +51,20 @@ copy-reference-bottom = Below text
 search-title = Search
 search-placeholder = Search verse text…
 no-search-results = No matches found
+
+# Library
+bible-management-title = Manage Bibles
+settings-bibles-section = Bibles
+settings-bibles-coming-soon = More translations coming soon.
+no-bibles-installed = No translations installed yet. Browse below to download one.
+no-bibles-installed-short = No Bibles installed
+current-bible-label = Current
+use-button = Use
+loading-label = Loading…
+browse-bibles-button = Browse available translations
+installed-label = Installed
+downloading-label = Downloading…
+download-button = Download
+download-failed = Failed to download { $name }: { $error }
+delete-failed = Failed to delete { $name }: { $error }
+library-button = Manage Bibles

@@ -12,7 +12,7 @@ pub use search::SearchMessage;
 pub use settings::SettingsMessage;
 pub use verse::VerseMessage;
 
-use crate::app::CharistApp;
+use crate::app::{CharistApp, Modal};
 use crate::config::AppConfig;
 use cosmic::cosmic_config::{Config, CosmicConfigEntry};
 use cosmic::widget::{self, text_input};
@@ -20,6 +20,7 @@ use cosmic::{Application, Task};
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    OpenModal(Modal),
     Bible(BibleMessage),
     Reference(ReferenceMessage),
     Verse(VerseMessage),
@@ -46,6 +47,9 @@ impl CharistApp {
             Message::Bookmark(msg) => return self.update_bookmark(msg),
             Message::Settings(msg) => self.update_settings(msg),
             Message::Search(msg) => return self.update_search(msg),
+            Message::OpenModal(modal) => {
+                self.modal = Some(modal);
+            }
 
             Message::ModifiersChanged(m) => {
                 self.modifiers = m;
@@ -75,10 +79,13 @@ impl CharistApp {
     }
 
     pub(crate) fn save_config(&mut self) {
-        self.config.bible_index = self.selected_bible.unwrap_or(0);
+        self.config.selected_bible = self
+            .bible
+            .is_some()
+            .then(|| self.config.selected_bible.clone())
+            .flatten();
         self.config.book_key = self.book_key.clone();
         self.config.chapter = self.chapter;
-
         if let Ok(context) = Config::new(<CharistApp as Application>::APP_ID, AppConfig::VERSION) {
             if let Err(err) = self.config.write_entry(&context) {
                 eprintln!("failed to save config: {err}");
