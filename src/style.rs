@@ -5,7 +5,7 @@ pub fn verse_style(theme: &cosmic::Theme, is_selected: bool) -> container::Style
     let cosmic = theme.cosmic();
     if is_selected {
         container::Style {
-            background: Some(Background::Color(cosmic.accent.base.into())),
+            background: Some(Background::Color(cosmic.background(true).base.into())),
             border: Border {
                 radius: cosmic.radius_s().into(),
                 width: 0.0,

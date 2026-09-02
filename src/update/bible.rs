@@ -76,8 +76,6 @@ impl CharistApp {
                 match res {
                     Ok(()) => {
                         self.installed_bibles = list_installed();
-                        // Auto-select the translation the user just downloaded.
-                        return self.select_installed_bible(name);
                     }
                     Err(e) => {
                         self.download_error = Some(format!("failed to library '{name}': {e}"))

@@ -18,6 +18,10 @@ panic = "abort"
 [profile.dev]
 codegen-units = 256
 
+[[bin]]
+name = "pgo-train"
+path = "src/bin/pgo_train.rs"
+
 [build-dependencies]
 xdgen = "=0.1.0"
 
