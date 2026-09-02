@@ -16,6 +16,7 @@ pub mod state;
 pub mod style;
 pub mod update;
 pub mod view;
+pub mod elements;
 
 pub fn run() -> cosmic::iced::Result {
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();

@@ -16,10 +16,7 @@ use cosmic::Element;
 use cosmic::iced::widget::text::Span as RichSpan;
 use cosmic::iced::widget::{mouse_area, rich_text, span, stack};
 use cosmic::iced::{Alignment, Color, Length};
-use cosmic::widget::{
-    self, button, column, container, divider, dropdown, icon, popover, row, scrollable, text,
-    text_input,
-};
+use cosmic::widget::{self, button, column, container, divider, dropdown, icon, popover, row, scrollable, text, text_input, Id};
 
 pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
     let content = column![
@@ -77,18 +74,6 @@ impl CharistApp {
                 .height(Length::Shrink)
                 .into(),
         }
-    }
-
-    fn labeled_field<'a>(
-        &'a self,
-        label: String,
-        field: Element<'a, Message>,
-        portion: u16,
-    ) -> Element<'a, Message> {
-        column![text::caption(label), field]
-            .spacing(6)
-            .width(Length::FillPortion(portion))
-            .into()
     }
 
     fn view_modal_shell<'a>(
@@ -154,29 +139,34 @@ impl CharistApp {
         .on_submit(|_| Message::Reference(RM::Submitted))
         .width(Length::Fill);
 
-        let bookmarks_button =
-            widget::button::icon(widget::icon::from_name("user-bookmarks-symbolic"))
-                .on_press(Message::Bookmark(BkM::Toggle));
-
-        let bibles_button =
-            widget::button::icon(widget::icon::from_name("accessories-dictionary-symbolic"))
-                .on_press(Message::OpenModal(Modal::BibleManagement));
-
-        let settings_button =
-            widget::button::icon(widget::icon::from_name("preferences-system-symbolic"))
-                .on_press(Message::Settings(SM::Toggle));
-
-        let search_button = button::icon(icon::from_name("edit-find-symbolic"))
-            .on_press(Message::Search(SeM::Toggle));
+        let search_button = self.icon_tooltip_button(
+            "edit-find-symbolic",
+            fl!("search-tooltip"),
+            Message::Search(SeM::Toggle),
+        );
+        let bookmarks_button = self.icon_tooltip_button(
+            "user-bookmarks-symbolic",
+            fl!("bookmarks-tooltip"),
+            Message::Bookmark(BkM::Toggle),
+        );
+        let bibles_button = self.icon_tooltip_button(
+            "accessories-dictionary-symbolic", // consider swapping for a book/library icon
+            fl!("bible-management-tooltip"),
+            Message::OpenModal(Modal::BibleManagement),
+        );
+        let settings_button = self.icon_tooltip_button(
+            "preferences-system-symbolic",
+            fl!("settings-tooltip"),
+            Message::Settings(SM::Toggle),
+        );
 
         let bar = row![
             self.labeled_field(fl!("label-reference"), reference_input.into(), 4),
-            self.labeled_field(fl!("label-translation"), self.view_bible_dropdown(), 2),
             self.labeled_field(fl!("label-book"), self.view_book_dropdown(), 3),
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
             column![
-                row![bibles_button, settings_button],
-                row![search_button, bookmarks_button]
+                text(""),
+                row![bibles_button, settings_button, search_button, bookmarks_button],
             ]
         ]
         .spacing(24)
@@ -309,6 +299,7 @@ impl CharistApp {
             verse_list = verse_list.push(verse_element);
         }
         let body = scrollable(verse_list.padding([4, 4]))
+            .id(Id::new("verse_scroll"))
             .height(Length::Fill)
             .spacing(16)
             .width(Length::Fill)

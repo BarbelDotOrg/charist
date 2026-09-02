@@ -16,6 +16,10 @@ label-reference = Reference
 label-translation = Translation
 label-book = Book
 label-chapter = Chapter
+search-tooltip = Search
+bookmarks-tooltip = Bookmarks
+bible-management-tooltip = Manage Bibles
+settings-tooltip = Settings
 
 # Empty / placeholder states
 pick-translation-first = Pick a translation first
