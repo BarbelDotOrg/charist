@@ -3,13 +3,14 @@ name = "charist"
 version = "0.3.0"
 edition = "2024"
 description = "Intuitive bible reader"
+homepage = "https://github.com/barbeldotorg/charist"
+repository = "https://github.com/barbeldotorg/charist"
 authors = ["Barbel"]
 license = "AGPL-3"
 
 # rust binaries are morbiously a beast
 # this makes them smaller
 [profile.release]
-strip = true
 lto = "fat"
 codegen-units = 1
 opt-level = 3
@@ -18,12 +19,14 @@ panic = "abort"
 [profile.dev]
 codegen-units = 256
 
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
 [[bin]]
 name = "pgo-train"
 path = "src/bin/pgo_train.rs"
-
-[build-dependencies]
-xdgen = "=0.1.0"
 
 [dependencies]
 serde = {version = "=1.0.229", features = ["derive"]}
@@ -34,14 +37,11 @@ rust-embed = "=8.12.0"
 i18n-embed = { version = "=0.16.0", features = ["fluent-system", "desktop-requester", ] }
 i18n-embed-fl = "=0.10.1"
 tantivy = "=0.26.1"
-log = "0.4.33"
 reqwest = { version = "=0.13.4", features = ["json", "stream"] }
 dirs = "6.0.0"
-futures-util = "0.3.34"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libcosmic = { git = "https://github.com/pop-os/libcosmic.git", features = ["winit", "tokio", "wgpu"] }
 
-# TODO a better fix than software rendering on windows
 [target.'cfg(target_os = "windows")'.dependencies]
 libcosmic = { git = "https://github.com/pop-os/libcosmic.git", features = ["winit", "tokio", "wgpu"] , default-features = false }
