@@ -6,7 +6,7 @@ pkgdesc="Intuitive Bible reader"
 arch=('x86_64')
 license=('AGPL-3.0-only')
 depends=('gcc-libs' 'glibc' 'wayland' 'libxkbcommon')
-makedepends=('cargo')
+makedepends=('cargo' 'lld')
 options=('!strip' '!lto')
 
 prepare() {
@@ -18,7 +18,7 @@ prepare() {
 build() {
   cd "$startdir"
   export CARGO_TARGET_DIR="$startdir/target"
-  cargo build --frozen --release
+  cargo build --frozen --release --jobs 2
 }
 
 package() {
