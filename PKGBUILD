@@ -18,7 +18,7 @@ prepare() {
 build() {
   cd "$startdir"
   export CARGO_TARGET_DIR="$startdir/target"
-  cargo build --frozen --release --jobs 2
+  cargo build --frozen --release
 }
 
 package() {
