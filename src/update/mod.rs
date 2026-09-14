@@ -1,7 +1,7 @@
 mod bible;
 mod bookmark;
 mod reference;
-mod search;
+pub(crate) mod search;
 mod settings;
 mod verse;
 

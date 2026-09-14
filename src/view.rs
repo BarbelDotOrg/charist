@@ -10,13 +10,16 @@ use crate::library::library::is_installed;
 use crate::style::{backdrop_style, cross_ref_item_style, error_banner_style, verse_style};
 use crate::update::{
     BibleMessage as BM, BookmarkMessage as BkM, Message, ReferenceMessage as RM,
-    SearchMessage as SeM, SettingsMessage as SM, VerseMessage as VM,
+    SearchMessage as SeM, SettingsMessage as SM, VerseMessage as VM, VerseMessage,
 };
 use cosmic::Element;
 use cosmic::iced::widget::text::Span as RichSpan;
 use cosmic::iced::widget::{mouse_area, rich_text, span, stack};
 use cosmic::iced::{Alignment, Color, Length};
-use cosmic::widget::{self, button, column, container, divider, dropdown, icon, popover, row, scrollable, text, text_input, Id};
+use cosmic::widget::{
+    self, Id, button, column, container, divider, dropdown, popover, row, scrollable, text,
+    text_input,
+};
 
 pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
     let content = column![
@@ -34,11 +37,12 @@ pub(crate) fn view(app: &CharistApp) -> Element<'_, Message> {
         .height(Length::Fill)
         .into();
 
-    if app.modal.is_some() {
-        stack![base, app.view_modal()].into()
-    } else {
-        base
-    }
+    let modal_layer: Element<'_, Message> = match &app.modal {
+        Some(_) => app.view_modal(),
+        None => widget::Space::new().width(0).height(0).into(),
+    };
+
+    stack![base, modal_layer].into()
 }
 
 impl CharistApp {
@@ -166,7 +170,12 @@ impl CharistApp {
             self.labeled_field(fl!("label-chapter"), self.view_chapter_dropdown(), 1),
             column![
                 text(""),
-                row![bibles_button, settings_button, search_button, bookmarks_button],
+                row![
+                    bibles_button,
+                    settings_button,
+                    search_button,
+                    bookmarks_button
+                ],
             ]
         ]
         .spacing(24)
@@ -300,6 +309,9 @@ impl CharistApp {
         }
         let body = scrollable(verse_list.padding([4, 4]))
             .id(Id::new("verse_scroll"))
+            .on_scroll(|viewport| {
+                Message::Verse(VerseMessage::ScrollChanged(viewport.relative_offset()))
+            })
             .height(Length::Fill)
             .spacing(16)
             .width(Length::Fill)

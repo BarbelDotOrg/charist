@@ -3,6 +3,7 @@ use crate::config::CopyIncludeReferencePolicy;
 use crate::footnotes::FootnoteLink;
 use crate::update::Message;
 use cosmic::Task;
+use cosmic::iced::widget::scrollable::RelativeOffset;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,7 @@ pub enum VerseMessage {
     CopySelection,
     FootnoteClicked(FootnoteLink),
     ToggleFootnotes(bool),
+    ScrollChanged(RelativeOffset),
 }
 
 impl CharistApp {
@@ -72,6 +74,9 @@ impl CharistApp {
                 if !enabled {
                     self.modal = None;
                 }
+            }
+            VerseMessage::ScrollChanged(offset) => {
+                self.scroll_offset = offset;
             }
         }
         Task::none()

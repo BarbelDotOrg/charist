@@ -1,11 +1,9 @@
-use crate::app::{CharistApp};
+use crate::app::CharistApp;
 use crate::update::Message;
 use cosmic::Element;
 use cosmic::iced::Length;
 use cosmic::widget;
-use cosmic::widget::{row, text, column, container};
-use i18n_embed_fl::fl;
-use crate::bibles::BibleData;
+use cosmic::widget::text;
 
 impl CharistApp {
     pub fn labeled_field<'a>(
@@ -20,12 +18,12 @@ impl CharistApp {
             .into()
     }
 
-    pub fn icon_tooltip_button<'a>(
-        &'a self,
-        icon_name: &'static str,
+    pub fn icon_tooltip_button(
+        &self,
+        icon_name: &str,
         tooltip: String,
         on_press: Message,
-    ) -> Element<'a, Message> {
+    ) -> Element<Message> {
         widget::tooltip(
             widget::button::icon(widget::icon::from_name(icon_name))
                 .on_press(on_press)
@@ -34,6 +32,6 @@ impl CharistApp {
             text::caption(tooltip),
             widget::tooltip::Position::Bottom,
         )
-            .into()
+        .into()
     }
 }

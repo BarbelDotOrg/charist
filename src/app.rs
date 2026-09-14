@@ -11,7 +11,8 @@ use crate::update::{Message, SearchMessage, VerseMessage};
 use crate::view; // no-op import guard removed below if unused
 use cosmic::cosmic_config::{Config, CosmicConfigEntry};
 use cosmic::iced::Subscription;
-use cosmic::iced::keyboard::Modifiers;
+use cosmic::iced::keyboard::{Key, Modifiers};
+use cosmic::iced::widget::scrollable::RelativeOffset;
 use cosmic::iced::window::Id;
 use cosmic::{Application, ApplicationExt, Core, Element, SingleThreadExecutor, Task};
 use std::collections::BTreeSet;
@@ -53,6 +54,7 @@ pub struct CharistApp {
     pub(crate) modifiers: Modifiers,
     pub(crate) selected_verses: BTreeSet<usize>,
     pub(crate) selection_anchor: Option<usize>,
+    pub(crate) scroll_offset: RelativeOffset,
 
     pub(crate) reference_text: String,
     pub(crate) reference_error: Option<String>,
@@ -111,6 +113,7 @@ impl Application for CharistApp {
             selection_anchor: None,
             reference_text: String::new(),
             reference_error: None,
+            scroll_offset: RelativeOffset::START,
             modal: None,
             verse_popup: None,
             search_query: String::new(),
@@ -158,14 +161,17 @@ impl Application for CharistApp {
                     modifiers,
                     ..
                 }) => {
-                    if modifiers.command()
+                    if modifiers.command() // CTRL c: copy
                         && key == cosmic::iced::keyboard::Key::Character("c".into())
                     {
                         Some(Message::Verse(VerseMessage::CopySelection))
-                    } else if modifiers.command()
+                    } else if modifiers.command() // CTRL F: open search
                         && key == cosmic::iced::keyboard::Key::Character("f".into())
                     {
                         Some(Message::Search(SearchMessage::Toggle))
+                    } else if modifiers.command() && key == Key::Character("r".into()) {
+                        // CTRL F: focus input
+                        Some(Message::FocusInput)
                     } else {
                         None
                     }

@@ -5,6 +5,8 @@ use crate::library::library::{
 };
 use crate::update::Message;
 use cosmic::Task;
+use cosmic::iced::core::widget::operation::scrollable;
+use cosmic::iced::widget;
 
 #[derive(Debug, Clone)]
 pub enum BibleMessage {
@@ -114,11 +116,16 @@ impl CharistApp {
                     self.bible_index = Some(index);
                     self.bible = Some(data);
                     self.config.selected_bible = Some(name);
-                    self.book_key = None;
-                    self.chapter = None;
+                    // TODO verify if the book key and chapter exists
+                    // self.book_key = None;
+                    // self.chapter = None;
                     self.clear_selection();
                     self.modal = None;
-                    // persist config here, same as your existing save-on-change path
+
+                    scrollable::snap_to::<Message>(
+                        widget::Id::new("verse_scroll"),
+                        self.scroll_offset.into(),
+                    );
                 }
                 Err(err) => eprintln!("failed to build search index for '{name}': {err}"),
             },
