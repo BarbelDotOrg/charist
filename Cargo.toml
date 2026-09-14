@@ -1,6 +1,6 @@
 [package]
 name = "charist"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 description = "Intuitive bible reader"
 homepage = "https://github.com/barbeldotorg/charist"
@@ -8,8 +8,6 @@ repository = "https://github.com/barbeldotorg/charist"
 authors = ["Barbel"]
 license = "AGPL-3"
 
-# rust binaries are morbiously a beast
-# this makes them smaller
 [profile.release]
 lto = "thin"
 codegen-units = 1
@@ -38,7 +36,7 @@ i18n-embed = { version = "=0.16.0", features = ["fluent-system", "desktop-reques
 i18n-embed-fl = "=0.10.1"
 tantivy = "=0.26.1"
 reqwest = { version = "=0.13.4", features = ["json", "stream"] }
-dirs = "6.0.0"
+dirs = "7.0.0"
 rsword_chirho = "=0.3.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
@@ -46,3 +44,6 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic.git", features = ["wini
 
 [target.'cfg(target_os = "windows")'.dependencies]
 libcosmic = { git = "https://github.com/pop-os/libcosmic.git", features = ["winit", "tokio", "wgpu"] , default-features = false }
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+winres = "0.1"

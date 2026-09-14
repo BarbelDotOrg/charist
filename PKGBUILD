@@ -1,6 +1,6 @@
 # Maintainer: Barbel <barbel@barbel.org>
 pkgname=charist
-pkgver=0.3.2
+pkgver=0.3.3
 pkgrel=1
 pkgdesc="Intuitive Bible reader"
 arch=('x86_64')
