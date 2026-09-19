@@ -22,10 +22,6 @@ codegen-units = 256
 inherits = "release"
 lto = "thin"
 
-[[bin]]
-name = "pgo-train"
-path = "src/bin/pgo_train.rs"
-
 [dependencies]
 serde = {version = "=1.0.229", features = ["derive"]}
 ciborium = "=0.2.2"
