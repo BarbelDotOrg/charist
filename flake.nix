@@ -17,7 +17,10 @@
           src = craneLib.cleanCargoSource ./.;
           strictDeps = true;
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.lld
+          ];
           buildInputs = [
             pkgs.wayland
             pkgs.libxkbcommon
