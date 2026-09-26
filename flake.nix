@@ -4,30 +4,33 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, crane }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
-      in
-      {
-        packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "charist";
-          version = "0.3.3";
+        craneLib = crane.mkLib pkgs;
 
-          src = ./.;
-
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
+        commonArgs = {
+          src = craneLib.cleanCargoSource ./.;
+          strictDeps = true;
 
           nativeBuildInputs = [ pkgs.pkg-config ];
-
           buildInputs = [
             pkgs.wayland
             pkgs.libxkbcommon
           ];
+        };
+
+        # Build deps once, separately, so rebuilds of just your code are fast
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+        charist = craneLib.buildPackage (commonArgs // {
+          inherit cargoArtifacts;
+          pname = "charist";
+          version = "0.3.3";
 
           # Matches PKGBUILD's options=('!strip' '!lto')
           dontStrip = true;
@@ -45,11 +48,14 @@
             platforms = [ "x86_64-linux" ];
             mainProgram = "charist";
           };
-        };
+        });
+      in
+      {
+        packages.default = charist;
 
-        devShells.default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${system}.default ];
-          nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.lld ];
+        devShells.default = craneLib.devShell {
+          inputsFrom = [ charist ];
+          packages = [ pkgs.lld ];
         };
       });
 }
